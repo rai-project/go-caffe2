@@ -2,11 +2,6 @@ language: cpp
 sudo: false
 
 
-env: &env
-  - BUILD_TYPE='Release'
-  - WITH_CUDA=false
-  - WITH_CMAKE=true
-  - CPU_ONLY=1
 addons: &addons
   - build-essential
   - cmake
@@ -43,7 +38,6 @@ matrix:
             - g++-6
             - *addons
       env:
-        - *env
         - MATRIX_EVAL="CC=gcc-6 && CXX=g++-6"
     - os: linux
       compiler: clang39
@@ -56,14 +50,12 @@ matrix:
             - clang-3.9
             - *addons
       env:
-        - *env
         - MATRIX_EVAL="CC=clang-3.9 && CXX=clang++-3.9"
 
     - os: osx
       osx_image: xcode8.3
       compiler: clang
       env:
-        - *env
         - MATRIX_EVAL="CC=clang && CXX=clang++"
 
 before_install:
