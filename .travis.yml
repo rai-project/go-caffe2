@@ -1,30 +1,37 @@
 language: cpp
 sudo: false
 
+
+env: &env
+  - BUILD_TYPE='Release'
+  - WITH_CUDA=false
+  - WITH_CMAKE=true
+  - CPU_ONLY=1
+addons: &addons
+  - build-essential
+  - cmake
+  - git
+  - libgoogle-glog-dev
+  - libprotobuf-dev
+  - protobuf-compiler
+  - python-dev
+  - python-pip
+  - wget
+  - libgflags2
+  - libgflags-dev
+  - libgtest-dev
+  - libiomp-dev
+  - libleveldb-dev
+  - liblmdb-dev
+  - libopencv-dev
+  - libopenmpi-dev
+  - libsnappy-dev
+  - openmpi-bin
+  - openmpi-doc
+  - python-pydot
+
 matrix:
   include:
-    - addons: &addons
-      - build-essential
-      - cmake
-      - git
-      - libgoogle-glog-dev
-      - libprotobuf-dev
-      - protobuf-compiler
-      - python-dev
-      - python-pip
-      - wget
-      - libgflags2
-      - libgflags-dev
-      - libgtest-dev
-      - libiomp-dev
-      - libleveldb-dev
-      - liblmdb-dev
-      - libopencv-dev
-      - libopenmpi-dev
-      - libsnappy-dev
-      - openmpi-bin
-      - openmpi-doc
-      - python-pydot
     # Linux C++14 GCC builds
     - os: linux
       compiler: gcc6
@@ -32,19 +39,14 @@ matrix:
         apt:
           sources:
             - ubuntu-toolchain-r-test
-            - ppa:masterminds/glide
           packages:
             - g++-6
             - *addons
       env:
-        - COMPILER='g++-6'
-        - BUILD_TYPE='Release'
-        - WITH_CUDA=false
-        - WITH_CMAKE=true
-        - CPU_ONLY=1
+        - *env
         - MATRIX_EVAL="CC=gcc-6 && CXX=g++-6"
     - os: linux
-      compiler: clang
+      compiler: clang39
       addons: &clang39
         apt:
           sources:
@@ -54,12 +56,15 @@ matrix:
             - clang-3.9
             - *addons
       env:
-        - COMPILER='g++-6'
-        - BUILD_TYPE='Release'
-        - WITH_CUDA=false
-        - WITH_CMAKE=true
-        - CPU_ONLY=1
+        - *env
         - MATRIX_EVAL="CC=clang-3.9 && CXX=clang++-3.9"
+
+    - os: osx
+      osx_image: xcode8.3
+      compiler: clang
+      env:
+        - *env
+        - MATRIX_EVAL="CC=clang && CXX=clang++"
 
 before_install:
   - eval "${MATRIX_EVAL}"
