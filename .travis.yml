@@ -82,7 +82,7 @@ before_install:
   - cd ${DEPS_DIR}
   - git clone --depth 1 --recursive https://github.com/caffe2/caffe2.git && cd ${DEPS_DIR}/caffe2
   - mkdir ${DEPS_DIR}/caffe2_build && cd ${DEPS_DIR}/caffe2_build
-  - cmake -DUSE_CUDA=OFF -DBUILD_PYTHON=OFF -DUSE_OPENCV=OFF -DUSE_OPENMP=OFF -DUSE_ROCKSDB=OFF -DUSE_MPI=OFF -DUSE_NNPACK=OFF -DUSE_GLOO=OFF -DUSE_NCCL=OFF ${DEPS_DIR}/caffe
+  - cmake -DUSE_CUDA=OFF -DBUILD_PYTHON=OFF -DUSE_OPENCV=OFF -DUSE_OPENMP=OFF -DUSE_ROCKSDB=OFF -DUSE_MPI=OFF -DUSE_NNPACK=OFF -DUSE_GLOO=OFF -DUSE_NCCL=OFF ${DEPS_DIR}/caffe2
   - make
   - make install
   - mv install /opt/caffe2
