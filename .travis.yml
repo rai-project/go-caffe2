@@ -77,7 +77,7 @@ before_install:
     elif [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then
       which cmake || brew install cmake
     fi
-  - if [ $TRAVIS_OS_NAME == osx ]; then brew update && brew install automake cmake git glog protobuf ; fi
+  - if [ $TRAVIS_OS_NAME == osx ]; then brew update && brew upgrade automake cmake git glog protobuf python ; fi
   - cd ${HOME}
   - git clone --depth 1 --recursive https://github.com/caffe2/caffe2.git ${HOME}/caffe2
   - mkdir ${HOME}/caffe2_build && cd ${HOME}/caffe2_build
