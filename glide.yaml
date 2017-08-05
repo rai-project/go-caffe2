@@ -1,0 +1,6 @@
+package: github.com/rai-project/go-caffe2
+import:
+- package: github.com/rai-project/config
+- package: github.com/rai-project/logger
+- package: github.com/sirupsen/logrus
+  version: ^1.0.0
