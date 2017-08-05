@@ -83,7 +83,7 @@ before_install:
     fi
   - if [ $TRAVIS_OS_NAME == osx ]; then brew update && brew install automake cmake git glog protobuf python; fi
   - cd ${HOME}
-  - git clone --depth 1 --recursive https://github.com/caffe2/caffe2.git && cd ${HOME}/caffe2
+  - if [ ! -d "${HOME}/caffe2" ]; git clone --depth 1 --recursive https://github.com/caffe2/caffe2.git ${HOME}/caffe2; fi
   - mkdir ${HOME}/caffe2_build && cd ${HOME}/caffe2_build
   - cmake -DCMAKE_INSTALL_PREFIX:PATH=/opt/caffe2 -DUSE_CUDA=OFF -DBUILD_PYTHON=OFF -DUSE_OPENCV=OFF -DUSE_OPENMP=OFF -DUSE_ROCKSDB=OFF -DUSE_MPI=OFF -DUSE_NNPACK=OFF -DUSE_GLOO=OFF -DUSE_NCCL=OFF ${HOME}/caffe2
   - make
