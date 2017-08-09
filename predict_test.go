@@ -20,8 +20,8 @@ import (
 
 var (
 	homeDir, _         = homedir.Dir()
-	predictNetURL      = "https://github.com/caffe2/models/raw/master/bvlc_alexnet/predict_net.pb"
-	initNetlURL        = "https://github.com/caffe2/models/raw/master/bvlc_alexnet/exec_net.pb"
+	initNetlURL        = "https://github.com/caffe2/models/blob/master/squeezenet/exec_net.pb"
+	predictNetURL      = "https://github.com/caffe2/models/blob/master/squeezenet/predict_net.pb"
 	predictNetFileName = filepath.Join(homeDir, "Downloads", "predict_net.pb")
 	initNetFileName    = filepath.Join(homeDir, "Downloads", "exec_net.pb")
 	imageFileName      = filepath.Join(sourcepath.MustAbsoluteDir(), "_fixtures", "chicken.jpg")

@@ -35,6 +35,21 @@
       "hashtable": "cpp",
       "valarray": "cpp",
       "string_view": "cpp",
-      "*.ipp": "cpp"
+      "*.ipp": "cpp",
+      "strstream": "cpp",
+      "complex": "cpp",
+      "csignal": "cpp",
+      "fstream": "cpp",
+      "functional": "cpp",
+      "random": "cpp",
+      "tuple": "cpp",
+      "unordered_map": "cpp",
+      "chrono": "cpp",
+      "codecvt": "cpp",
+      "condition_variable": "cpp",
+      "mutex": "cpp",
+      "ratio": "cpp",
+      "system_error": "cpp",
+      "thread": "cpp"
     }
   }
