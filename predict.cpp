@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 
+#include <caffe2/core/init.h>
 #include <caffe2/core/predictor.h>
 #include <caffe2/utils/proto_utils.h>
 
@@ -21,23 +22,22 @@ using json = nlohmann::json;
 /* Pair (label, confidence) representing a prediction. */
 using Prediction = std::pair<int, float>;
 
-PredictorContext New(char* init_net_file, char* predict_net_file) {
+PredictorContext New(char *init_net_file, char *predict_net_file) {
   try {
     NetDef init_net, predict_net;
     CAFFE_ENFORCE(ReadProtoFromFile(init_net_file, &init_net));
     CAFFE_ENFORCE(ReadProtoFromFile(predict_net_file, &predict_net));
     const auto ctx = new Predictor(init_net, predict_net);
-    return (void*)ctx;
-  } catch (const std::invalid_argument& ex) {
+    std::cout << "..  " << predict_net.external_input_size() << "\n";
+    return (void *)ctx;
+  } catch (const std::invalid_argument &ex) {
     LOG(ERROR) << "exception: " << ex.what();
     errno = EINVAL;
     return nullptr;
   }
 }
 
-void Init() { ::google::InitGoogleLogging("go-caffe2"); }
-
-const char* Predict(PredictorContext pred, float* imageData) {
+const char *Predict(PredictorContext pred, float *imageData) {
   // auto image = cv::imread(image_file);
   // image.convertTo(image, CV_32FC3, 1.0, -128);
   // vector<cv::Mat> channels(3);
@@ -48,16 +48,28 @@ const char* Predict(PredictorContext pred, float* imageData) {
   // }
   // std::vector<TIndex> dims({1, image.channels(), image.rows, image.cols});
 
+  const int channels = 3;
+  const int width = 227;
+  const int height = 227;
+  const int size = channels * width * height;
+
   std::vector<float> data;
-  for (int i = 0; i < 3*227*227; i++) {
-    data[i] = imageData[i];
-  }
-  std::vector<TIndex> dims({1, 3, 227, 227});
+  data.reserve(size);
+  std::copy(imageData, imageData + size, data.begin());
+  std::vector<TIndex> dims({1, channels, width, height});
+
+  std::cout << "size = " << size << std::endl;
+  std::cout << "dims = " << dims << std::endl;
 
   TensorCPU input(dims, data, NULL);
-  Predictor::TensorVector inputVec({&input}), outputVec;
-  auto predictor = (Predictor*)pred;
+  std::cout << "input dims = " << input.dims() << std::endl;
+
+  std::cout << "inputVec declare  " << std::endl;
+  Predictor::TensorVector inputVec({&input}), outputVec{};
+  auto predictor = (Predictor *)pred;
+  std::cout << "predictor->run(inputVec, &outputVec);" << std::endl;
   predictor->run(inputVec, &outputVec);
+  std::cout << "auto &output = *(outputVec[0])" << std::endl;
   auto &output = *(outputVec[0]);
   const auto &probs = output.data<float>();
 
@@ -76,6 +88,15 @@ const char* Predict(PredictorContext pred, float* imageData) {
 }
 
 void Delete(PredictorContext pred) {
-  auto predictor = (Predictor*)pred;
-  delete predictor;
+  auto predictor = (Predictor *)pred;
+  if (predictor) {
+    delete predictor;
+  }
+}
+
+void Init() {
+  int dummy_argc = 1;
+  const char *dummy_name = "go-caffe2";
+  char **dummy_argv = const_cast<char **>(&dummy_name);
+  GlobalInit(&dummy_argc, &dummy_argv);
 }

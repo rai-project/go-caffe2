@@ -49,3 +49,7 @@ func (p *Predictor) Predict(imageData []float32) (Predictions, error) {
 func (p *Predictor) Close() {
 	C.Delete(p.ctx)
 }
+
+func init() {
+	C.Init()
+}
