@@ -5,10 +5,8 @@
 #include <utility>
 #include <vector>
 
-// #include <caffe2/core/predictor.h>
-#include "caffe2/core/init.h"
-#include "caffe2/core/predictor.h"
-#include "caffe2/utils/proto_utils.h"
+#include <caffe2/core/predictor.h>
+#include <caffe2/utils/proto_utils.h>
 
 // #include "opencv2/highgui/highgui.hpp"
 // #include "opencv2/imgproc/imgproc.hpp"
