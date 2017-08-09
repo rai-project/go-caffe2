@@ -1,7 +1,7 @@
 package caffe2
 
-// #cgo LDFLAGS: -lcaffe2 -lstdc++ -lglog -lboost_system -L/usr/local/lib  -L/opt/caffe2/lib
-// #cgo CXXFLAGS: -std=c++11 -I/usr/local/include/ -I${SRCDIR}/cbits -O3 -Wall -DCPU_ONLY=1 -I/opt/caffe2/include
+// #cgo LDFLAGS: -lCaffe2_CPU -lstdc++ -lglog -lboost_system -L/usr/local/lib  -L/opt/caffe2/lib
+// #cgo CXXFLAGS: -std=c++11 -I/usr/local/include/ -I/usr/local/include/eigen3/ -I${SRCDIR}/cbits -O3 -Wall -DCPU_ONLY=1 -I/opt/caffe2/include
 // #cgo darwin CXXFLAGS: -DBLAS=open -I/usr/local/opt/openblas/include
 // #cgo darwin LDFLAGS: -L/usr/local/opt/openblas/lib
 // #include <stdio.h>
