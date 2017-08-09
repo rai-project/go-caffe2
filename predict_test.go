@@ -25,11 +25,9 @@ var (
 	predictNetFileName = filepath.Join(homeDir, "Downloads", "predict_net.pb")
 	initNetFileName    = filepath.Join(homeDir, "Downloads", "exec_net.pb")
 	imageFileName      = filepath.Join(sourcepath.MustAbsoluteDir(), "_fixtures", "chicken.jpg")
-	// meanImage          = filepath.Join(sourcepath.MustAbsoluteDir(), "_fixtures", "imagenet_mean.binaryproto")
 )
 
 func getImageData(t *testing.T, img image.Image) ([]float32, error) {
-
 	b := img.Bounds()
 	height := b.Max.Y - b.Min.Y // image height
 	width := b.Max.X - b.Min.X  // image width

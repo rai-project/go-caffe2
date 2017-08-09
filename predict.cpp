@@ -61,7 +61,6 @@ const char *Predict(PredictorContext pred, float *imageData) {
   std::cout << "size = " << size << std::endl;
   std::cout << "dims = " << dims << std::endl;
 
-  // TensorCPU input(dims, data, NULL);
   TensorCPU input;
   input.Resize(dims);
   input.ShareExternalPointer(data.data());
