@@ -21,11 +21,11 @@ using json = nlohmann::json;
 /* Pair (label, confidence) representing a prediction. */
 using Prediction = std::pair<int, float>;
 
-PredictorContext New(char* model_file, char* trained_file) {
+PredictorContext New(char* init_net_file, char* predict_net_file) {
   try {
     NetDef init_net, predict_net;
-    CAFFE_ENFORCE(ReadProtoFromFile(model_file, &init_net));
-    CAFFE_ENFORCE(ReadProtoFromFile(trained_file, &predict_net));
+    CAFFE_ENFORCE(ReadProtoFromFile(init_net_file, &init_net));
+    CAFFE_ENFORCE(ReadProtoFromFile(predict_net_file, &predict_net));
     const auto ctx = new Predictor(init_net, predict_net);
     return (void*)ctx;
   } catch (const std::invalid_argument& ex) {
@@ -79,5 +79,3 @@ void Delete(PredictorContext pred) {
   auto predictor = (Predictor*)pred;
   delete predictor;
 }
-
-// void SetMode(int mode) { Caffe::set_mode((caffe::Caffe::Brew)mode); }

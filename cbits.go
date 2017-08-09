@@ -16,24 +16,19 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	CPUMode = 0
-	GPUMode = 1
-)
-
 type Predictor struct {
 	ctx C.PredictorContext
 }
 
-func New(modelFile, trainFile string) (*Predictor, error) {
-	if !com.IsFile(modelFile) {
-		return nil, errors.Errorf("file %s not found", modelFile)
+func New(initNetFile, predictNetFile string) (*Predictor, error) {
+	if !com.IsFile(initNetFile) {
+		return nil, errors.Errorf("file %s not found", initNetFile)
 	}
-	if !com.IsFile(trainFile) {
-		return nil, errors.Errorf("file %s not found", trainFile)
+	if !com.IsFile(predictNetFile) {
+		return nil, errors.Errorf("file %s not found", predictNetFile)
 	}
 	return &Predictor{
-		ctx: C.New(C.CString(modelFile), C.CString(trainFile)),
+		ctx: C.New(C.CString(initNetFile), C.CString(predictNetFile)),
 	}, nil
 }
 
@@ -53,16 +48,4 @@ func (p *Predictor) Predict(imageData []float32) (Predictions, error) {
 
 func (p *Predictor) Close() {
 	C.Delete(p.ctx)
-}
-
-// func SetUseCPU() {
-// 	C.SetMode(C.int(CPUMode))
-// }
-
-// func SetUseGPU() {
-// 	C.SetMode(C.int(GPUMode))
-// }
-
-func init() {
-	C.Init()
 }
