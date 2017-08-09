@@ -22,7 +22,7 @@ using json = nlohmann::json;
 /* Pair (label, confidence) representing a prediction. */
 using Prediction = std::pair<int, float>;
 
-PredictorContext New(char *init_net_file, char *predict_net_file) {
+PredictorContext New(char *predict_net_file, char *init_net_file) {
   try {
     NetDef init_net, predict_net;
     CAFFE_ENFORCE(ReadProtoFromFile(init_net_file, &init_net));
@@ -38,6 +38,7 @@ PredictorContext New(char *init_net_file, char *predict_net_file) {
 }
 
 const char *Predict(PredictorContext pred, float *imageData) {
+  // TODO
   // auto image = cv::imread(image_file);
   // image.convertTo(image, CV_32FC3, 1.0, -128);
   // vector<cv::Mat> channels(3);
@@ -58,21 +59,13 @@ const char *Predict(PredictorContext pred, float *imageData) {
   std::copy(imageData, imageData + size, data.begin());
   std::vector<TIndex> dims({1, channels, width, height});
 
-  std::cout << "size = " << size << std::endl;
-  std::cout << "dims = " << dims << std::endl;
-
   TensorCPU input;
   input.Resize(dims);
   input.ShareExternalPointer(data.data());
 
-  std::cout << "input dims = " << input.dims() << std::endl;
-
-  std::cout << "inputVec declare  " << std::endl;
   Predictor::TensorVector inputVec({&input}), outputVec{};
   auto predictor = (Predictor *)pred;
-  std::cout << "predictor->run(inputVec, &outputVec);" << std::endl;
   predictor->run(inputVec, &outputVec);
-  std::cout << "auto &output = *(outputVec[0])" << std::endl;
   auto &output = *(outputVec[0]);
   const auto &probs = output.data<float>();
 

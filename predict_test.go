@@ -50,7 +50,7 @@ func getImageData(t *testing.T, img image.Image) ([]float32, error) {
 }
 
 func TestCreatePredictor(t *testing.T) {
-	predictor, err := New(initNetFileName, predictNetFileName)
+	predictor, err := New(predictNetFileName, initNetFileName)
 	assert.NoError(t, err)
 	defer predictor.Close()
 	assert.NotEmpty(t, predictor)

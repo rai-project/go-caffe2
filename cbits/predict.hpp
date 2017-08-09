@@ -9,7 +9,7 @@ extern "C" {
 
 typedef void *PredictorContext;
 
-PredictorContext New(char *init_net_file, char *predict_net_file);
+PredictorContext New(char *predict_net_file, char *init_net_file);
 
 const char *Predict(PredictorContext pred, float *imageData);
 
