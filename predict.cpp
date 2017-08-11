@@ -37,7 +37,8 @@ PredictorContext New(char *predict_net_file, char *init_net_file) {
   }
 }
 
-const char *Predict(PredictorContext pred, float *imageData) {
+const char *Predict(PredictorContext pred, float *imageData, const int channels,
+  const int width, const int height) {
   // TODO
   // auto image = cv::imread(image_file);
   // image.convertTo(image, CV_32FC3, 1.0, -128);
@@ -49,9 +50,6 @@ const char *Predict(PredictorContext pred, float *imageData) {
   // }
   // std::vector<TIndex> dims({1, image.channels(), image.rows, image.cols});
 
-  const int channels = 3;
-  const int width = 227;
-  const int height = 227;
   const int size = channels * width * height;
 
   std::vector<float> data;

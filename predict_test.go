@@ -71,7 +71,7 @@ func TestCreatePredictor(t *testing.T) {
 	imageData, err := getImageData(t, image)
 	assert.NoError(t, err)
 
-	predictions, err := predictor.Predict(imageData)
+	predictions, err := predictor.Predict(imageData, 3, imageWidth, imageHeight)
 	predictions.Sort()
 	pp.Println(predictions[0:2])
 

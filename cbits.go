@@ -32,9 +32,10 @@ func New(initNetFile, predictNetFile string) (*Predictor, error) {
 	}, nil
 }
 
-func (p *Predictor) Predict(imageData []float32) (Predictions, error) {
+func (p *Predictor) Predict(imageData []float32, channels int,
+	width int, height int) (Predictions, error) {
 	ptr := (*C.float)(unsafe.Pointer(&imageData[0]))
-	r := C.Predict(p.ctx, ptr)
+	r := C.Predict(p.ctx, ptr, C.int(channels), C.int(width), C.int(height))
 	defer C.free(unsafe.Pointer(r))
 	js := C.GoString(r)
 
