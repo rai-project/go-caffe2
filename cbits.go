@@ -27,8 +27,12 @@ func New(initNetFile, predictNetFile string) (*Predictor, error) {
 	if !com.IsFile(predictNetFile) {
 		return nil, errors.Errorf("file %s not found", predictNetFile)
 	}
+  ctx := C.New(C.CString(initNetFile), C.CString(predictNetFile))
+  if ctx == nul {
+    return nil, errors.Error("unable to create caffe2 predictor context")
+  }
 	return &Predictor{
-		ctx: C.New(C.CString(initNetFile), C.CString(predictNetFile)),
+		ctx: ctx,
 	}, nil
 }
 
