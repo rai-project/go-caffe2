@@ -9,9 +9,6 @@
 #include <caffe2/core/predictor.h>
 #include <caffe2/utils/proto_utils.h>
 
-// #include "opencv2/highgui/highgui.hpp"
-// #include "opencv2/imgproc/imgproc.hpp"
-
 #include "json.hpp"
 #include "predict.hpp"
 
@@ -39,22 +36,11 @@ PredictorContext New(char *predict_net_file, char *init_net_file) {
 
 const char *Predict(PredictorContext pred, float *imageData, const int channels,
   const int width, const int height) {
-  // TODO
-  // auto image = cv::imread(image_file);
-  // image.convertTo(image, CV_32FC3, 1.0, -128);
-  // vector<cv::Mat> channels(3);
-  // cv::split(image, channels);
-  // std::vector<float> data;
-  // for (auto &c : channels) {
-  //   data.insert(data.end(), (float *)c.datastart, (float *)c.dataend);
-  // }
-  // std::vector<TIndex> dims({1, image.channels(), image.rows, image.cols});
-
-  const int size = channels * width * height;
+  const auto image_size = channels * width * height;
 
   std::vector<float> data;
-  data.reserve(size);
-  std::copy(imageData, imageData + size, data.begin());
+  data.reserve(image_size);
+  std::copy(imageData, imageData + image_size, data.begin());
   std::vector<TIndex> dims({1, channels, width, height});
 
   TensorCPU input;
