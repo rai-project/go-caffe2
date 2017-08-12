@@ -29,7 +29,7 @@ func New(initNetFile, predictNetFile string) (*Predictor, error) {
 	}
   ctx := C.New(C.CString(initNetFile), C.CString(predictNetFile))
   if ctx == nul {
-    return nil, errors.Error("unable to create caffe2 predictor context")
+    return nil, errors.New("unable to create caffe2 predictor context")
   }
 	return &Predictor{
 		ctx: ctx,
