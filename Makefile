@@ -34,7 +34,7 @@ generate: clean
 	${SED} -i '0,/func init/ s/func init/func disabled_init3/' proto/caffe2.pb.go
 	${SED} -i '0,/func init/ s/func init/func disabled_init4/' proto/caffe2.pb.go
 	${SED} -i '0,/func init/ s/func init/func disabled_init5/' proto/caffe2.pb.go
-	go fmt proto/...
+	go fmt ./proto/...
 
 clean-models:
 	rm -fr builtin_models_static.go
