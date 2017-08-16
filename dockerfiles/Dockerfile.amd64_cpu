@@ -39,8 +39,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     openmpi-doc \
     libeigen3-dev \
     wget \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-
 
 ########## INSTALLATION STEPS ###################
 RUN git clone --depth 1 --recursive https://github.com/caffe2/caffe2.git
