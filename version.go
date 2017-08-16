@@ -1,7 +1,7 @@
 package caffe2
 
-const (
+var (
 	Version   = "0.3.2"
-	BuildDate string
-	GitCommit string
+	BuildDate = "undefined"
+	GitCommit = "undefined"
 )
