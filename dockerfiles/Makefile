@@ -13,7 +13,7 @@ DOCKER_IMAGE ?= carml/go-caffe2
 
 # Get System architecture
 # for now... ask carl how best to get this
-ARCH=amd64
+ARCH ?= $(shell go env GOARCH)
 
 # Get the latest commit.
 GIT_COMMIT = $(strip $(shell git rev-parse --short HEAD))

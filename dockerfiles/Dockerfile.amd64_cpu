@@ -39,12 +39,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libopenblas-base \
     openmpi-bin \
     openmpi-doc \
+    python-dev \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
 
 ########## INSTALLATION STEPS ###################
-RUN git clone --branch v0.8.1 --recursive https://github.com/caffe2/caffe2.git
+RUN git clone --depth 1 --recursive https://github.com/caffe2/caffe2.git
 RUN cd caffe2 && mkdir build && cd build \
     && cmake .. \
     -DUSE_CUDA=OFF \
@@ -75,9 +76,11 @@ ENV PATH $GOPATH/bin:$PATH
 RUN go get github.com/Masterminds/glide
 
 # Get Go bindings
-WORKDIR $GOPATH/src/github.com/rai-project/go-caffe2
-RUN git clone --depth=1 --branch=master https://github.com/rai-project/go-caffe2.git . && \
+ENV PKG github.com/rai-project/go-caffe2
+WORKDIR $GOPATH/src/$PKG
+
+RUN git clone --depth=1 --branch=master https://${PKG}.git . && \
     glide install && \
-    go build && \
+    go build -a -installsuffix cgo -ldflags "-s -w -X ${PKG}/Version=${VERSION} -X ${PKG}/version.COMMIT=${VCS_REF} -X ${PKG}/BuildDate=${BUILD_DATE}"&& \
     go install && \
     rm -fr vendor
