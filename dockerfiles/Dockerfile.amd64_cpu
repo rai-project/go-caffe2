@@ -24,7 +24,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     libgoogle-glog-dev \
     libprotobuf-dev \
-    python-pip \
     protobuf-compiler \
     libgflags-dev \
     libgflags-dev \
@@ -32,14 +31,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libiomp-dev \
     libleveldb-dev \
     liblmdb-dev \
-    libopencv-dev \
     libopenmpi-dev \
     libsnappy-dev \
     libopenblas-dev \
     libopenblas-base \
     openmpi-bin \
     openmpi-doc \
-    python-dev \
+    libeigen3-dev \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
@@ -51,6 +49,11 @@ RUN cd caffe2 && mkdir build && cd build \
     -DUSE_CUDA=OFF \
     -DUSE_NNPACK=OFF \
     -DUSE_ROCKSDB=OFF \
+    -DBUILD_PYTHON=OFF \
+    -DUSE_OPENCV=OFF \
+    -DUSE_NNPACK=OFF \
+    -DUSE_GLOO=OFF \
+    -DUSE_NCCL=OFF \
     && make -j"$(nproc)" install \
     && ldconfig \
     && make clean \
