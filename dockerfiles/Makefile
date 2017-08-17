@@ -55,53 +55,39 @@ else
 DOCKER_TAG = $(ARCH)-$(CODE_VERSION)-$(GIT_COMMIT)$(DOCKER_TAG_SUFFIX)
 endif
 
-buildlocalppccpu: # Build PPC64LE CPU Docker image
-	@docker build \
-		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
-		--build-arg VERSION=$(CODE_VERSION) \
-		--build-arg VCS_URL=`git config --get remote.origin.url` \
-		--build-arg VCS_REF=$(GIT_COMMIT) \
-		-f Dockerfile.ppc64le_cpu \
-		-t $(DOCKER_IMAGE):cpu-$(DOCKER_TAG) .
-buildlocalppcgpu: # Build PPC64LE GPU Docker image
-	@docker build \
-		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
-		--build-arg VERSION=$(CODE_VERSION) \
-		--build-arg VCS_URL=`git config --get remote.origin.url` \
-		--build-arg VCS_REF=$(GIT_COMMIT) \
-		-f Dockerfile.ppc64le_gpu \
-		-t $(DOCKER_IMAGE):gpu-$(DOCKER_TAG) .
-buildlocalamd64gpu: # Build AMD64 GPU Docker image
+docker_build_gpu: # Build GPU Docker image
 	# Build Docker image
 	@docker build \
 		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
 		--build-arg VERSION=$(CODE_VERSION) \
 		--build-arg VCS_URL=`git config --get remote.origin.url` \
 		--build-arg VCS_REF=$(GIT_COMMIT) \
-		-f Dockerfile.amd64_gpu \
+		-f Dockerfile.$(ARCH)_gpu \
 		-t $(DOCKER_IMAGE):gpu-$(DOCKER_TAG) .
-buildlocalamd64cpu:  # Build AMD64 CPU Docker image
+docker_build_cpu:  # Build CPU Docker image
 	# Build Docker image
 	@docker build \
 		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
 		--build-arg VERSION=$(CODE_VERSION) \
 		--build-arg VCS_URL=`git config --get remote.origin.url` \
 		--build-arg VCS_REF=$(GIT_COMMIT) \
-		-f Dockerfile.amd64_cpu \
+		-f Dockerfile.$(ARCH)_cpu \
 		-t "$(DOCKER_IMAGE):cpu-$(DOCKER_TAG)" .
 
-buildlocalamd64: buildlocalamd64cpu
+docker_build: docker_build_cpu docker_build_gpu
 
 
-docker_push: # Tag image as latest and Push to DockerHub
-	docker tag $(DOCKER_IMAGE):cpu-$(DOCKER_TAG) $(DOCKER_IMAGE):cpu-latest
-	docker tag $(DOCKER_IMAGE):gpu-$(DOCKER_TAG) $(DOCKER_IMAGE):gpu-latest
-
-
+docker_push_cpu: # Tag image as latest and Push to DockerHub
+	docker tag $(DOCKER_IMAGE):cpu-$(DOCKER_TAG) $(DOCKER_IMAGE):$(ARCH)-cpu-latest
 	docker push $(DOCKER_IMAGE):cpu-$(DOCKER_TAG)
+	docker push $(DOCKER_IMAGE):$(ARCH)-cpu-latest
+
+docker_push_gpu: # Tag image as latest and Push to DockerHub
+	docker tag $(DOCKER_IMAGE):gpu-$(DOCKER_TAG) $(DOCKER_IMAGE):$(ARCH)-gpu-latest
 	docker push $(DOCKER_IMAGE):gpu-$(DOCKER_TAG)
-	docker push $(DOCKER_IMAGE):cpu-latest
-	docker push $(DOCKER_IMAGE):gpu-latest
+	docker push $(DOCKER_IMAGE):$(ARCH)-gpu-latest
+
+docker_push: docker_push_cpu docker_push_gpu
 
 output:
 	@echo Docker Image: $(DOCKER_IMAGE):$(DOCKER_TAG)
