@@ -5,7 +5,7 @@ default: docker_build_cpu
 build: docker_build output
 
 # Build and push Docker image
-release: docker_build docker_push output
+release: docker_build docker_push
 
 # Image and binary can be overidden with env vars.
 DOCKER_IMAGE ?= carml/go-caffe2
