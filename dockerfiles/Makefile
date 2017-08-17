@@ -55,22 +55,17 @@ else
 DOCKER_TAG = $(CODE_VERSION)-$(GIT_COMMIT)$(DOCKER_TAG_SUFFIX)
 endif
 
+BUILD_ARGS = --build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
+						 --build-arg VERSION=$(CODE_VERSION) \
+		         --build-arg VCS_URL=`git config --get remote.origin.url` \
+		         --build-arg VCS_REF=$(GIT_COMMIT)
+
 docker_build_gpu: # Build GPU Docker image
-	# Build Docker image
-	@docker build \
-		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
-		--build-arg VERSION=$(CODE_VERSION) \
-		--build-arg VCS_URL=`git config --get remote.origin.url` \
-		--build-arg VCS_REF=$(GIT_COMMIT) \
+	@docker build $(BUILD_ARGS) \
 		-f Dockerfile.$(ARCH)_gpu \
 		-t $(DOCKER_IMAGE):$(ARCH)-gpu-$(DOCKER_TAG) .
 docker_build_cpu:  # Build CPU Docker image
-	# Build Docker image
-	@docker build \
-		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
-		--build-arg VERSION=$(CODE_VERSION) \
-		--build-arg VCS_URL=`git config --get remote.origin.url` \
-		--build-arg VCS_REF=$(GIT_COMMIT) \
+	@docker build $(BUILD_ARGS) \
 		-f Dockerfile.$(ARCH)_cpu \
 		-t "$(DOCKER_IMAGE):$(ARCH)-cpu-$(DOCKER_TAG)" .
 
