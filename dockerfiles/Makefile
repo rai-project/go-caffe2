@@ -52,7 +52,7 @@ endif
 
 else
 # Add the commit ref for development builds. Mark as dirty if the working directory isn't clean
-DOCKER_TAG = $(ARCH)-$(CODE_VERSION)-$(GIT_COMMIT)$(DOCKER_TAG_SUFFIX)
+DOCKER_TAG = $(CODE_VERSION)-$(GIT_COMMIT)$(DOCKER_TAG_SUFFIX)
 endif
 
 docker_build_gpu: # Build GPU Docker image
@@ -63,7 +63,7 @@ docker_build_gpu: # Build GPU Docker image
 		--build-arg VCS_URL=`git config --get remote.origin.url` \
 		--build-arg VCS_REF=$(GIT_COMMIT) \
 		-f Dockerfile.$(ARCH)_gpu \
-		-t $(DOCKER_IMAGE):gpu-$(DOCKER_TAG) .
+		-t $(DOCKER_IMAGE):$(ARCH)-gpu-$(DOCKER_TAG) .
 docker_build_cpu:  # Build CPU Docker image
 	# Build Docker image
 	@docker build \
@@ -72,19 +72,19 @@ docker_build_cpu:  # Build CPU Docker image
 		--build-arg VCS_URL=`git config --get remote.origin.url` \
 		--build-arg VCS_REF=$(GIT_COMMIT) \
 		-f Dockerfile.$(ARCH)_cpu \
-		-t "$(DOCKER_IMAGE):cpu-$(DOCKER_TAG)" .
+		-t "$(DOCKER_IMAGE):$(ARCH)-cpu-$(DOCKER_TAG)" .
 
 docker_build: docker_build_cpu docker_build_gpu
 
 
 docker_push_cpu: # Tag image as latest and Push to DockerHub
-	docker tag $(DOCKER_IMAGE):cpu-$(DOCKER_TAG) $(DOCKER_IMAGE):$(ARCH)-cpu-latest
-	docker push $(DOCKER_IMAGE):cpu-$(DOCKER_TAG)
+	docker tag $(DOCKER_IMAGE):$(ARCH)-cpu-$(DOCKER_TAG) $(DOCKER_IMAGE):$(ARCH)-cpu-latest
+	docker push $(DOCKER_IMAGE):$(ARCH)-cpu-$(DOCKER_TAG)
 	docker push $(DOCKER_IMAGE):$(ARCH)-cpu-latest
 
 docker_push_gpu: # Tag image as latest and Push to DockerHub
-	docker tag $(DOCKER_IMAGE):gpu-$(DOCKER_TAG) $(DOCKER_IMAGE):$(ARCH)-gpu-latest
-	docker push $(DOCKER_IMAGE):gpu-$(DOCKER_TAG)
+	docker tag $(DOCKER_IMAGE):$(ARCH)-gpu-$(DOCKER_TAG) $(DOCKER_IMAGE):$(ARCH)-gpu-latest
+	docker push $(DOCKER_IMAGE):$(ARCH)-gpu-$(DOCKER_TAG)
 	docker push $(DOCKER_IMAGE):$(ARCH)-gpu-latest
 
 docker_push: docker_push_cpu docker_push_gpu
