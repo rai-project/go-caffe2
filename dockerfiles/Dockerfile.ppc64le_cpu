@@ -1,13 +1,12 @@
 FROM ppc64le/ubuntu:16.04
 MAINTAINER Abdul Dakkak <dakkak@illinois.edu>
 
-ENV CAFFE2_VERSION 0.8.1
-
 # Build-time metadata as defined at http://label-schema.org
 ARG BUILD_DATE
 ARG VCS_REF
 ARG VERSION
 ARG ARCH
+ARG FRAMEWORK_VERSION
 LABEL org.carml.go-caffe2.build-date=$BUILD_DATE \
       org.carml.go-caffe2.name="go-caffe2 bindings for go" \
       org.carml.go-caffe2.description="" \
@@ -17,7 +16,7 @@ LABEL org.carml.go-caffe2.build-date=$BUILD_DATE \
       org.carml.go-caffe2.vendor="CarML" \
       org.carml.go-caffe2.arch=$ARCH \
       org.carml.go-caffe2.version=$VERSION \
-      org.carml.go-caffe2.framework_version=$CAFFE2_VERSION \
+      org.carml.go-caffe2.framework_version=$FRAMEWORK_VERSION \
       org.carml.go-caffe2.schema-version="1.0"
 
 
@@ -28,8 +27,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     software-properties-common && \
     add-apt-repository ppa:ubuntu-toolchain-r/test -y && \
     apt-get update && apt-get install -y --no-install-recommends \
-      gcc-6 \
-      g++-6  \
+      gcc-7 \
+      g++-7  \
       cmake \
       curl \
       git \
@@ -53,12 +52,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates \
     && \
     rm -rf /var/lib/apt/lists/* && \
-    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-6 60 --slave /usr/bin/g++ g++ /usr/bin/g++-6 && \
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 60 --slave /usr/bin/g++ g++ /usr/bin/g++-7 && \
     update-alternatives --config gcc && \
     gcc -v
 
 ########## INSTALLATION STEPS ###################
-RUN git clone  --single-branch --depth 1 --branch v$(CAFFE2_VERSION) --recursive https://github.com/caffe2/caffe2.git  && \
+RUN git clone  --single-branch --depth 1 --branch $FRAMEWORK_VERSION --recursive https://github.com/caffe2/caffe2.git  && \
     cd caffe2 && \
     cd third_party/benchmark && \
     git checkout master && \
@@ -66,14 +65,14 @@ RUN git clone  --single-branch --depth 1 --branch v$(CAFFE2_VERSION) --recursive
     cd ../..
 RUN cd caffe2 && mkdir build && cd build \
     && cmake .. \
-    -DUSE_CUDA=OFF \
-    -DUSE_NNPACK=OFF \
-    -DUSE_ROCKSDB=OFF \
-    -DBUILD_PYTHON=OFF \
-    -DUSE_OPENCV=OFF \
-    -DUSE_NNPACK=OFF \
-    -DUSE_GLOO=OFF \
-    -DUSE_NCCL=OFF \
+      -DUSE_CUDA=OFF \
+      -DUSE_NNPACK=OFF \
+      -DUSE_ROCKSDB=OFF \
+      -DBUILD_PYTHON=OFF \
+      -DUSE_OPENCV=OFF \
+      -DUSE_NNPACK=OFF \
+      -DUSE_GLOO=OFF \
+      -DUSE_NCCL=OFF \
     && make -j"$(nproc)" install \
     && ldconfig \
     && make clean \
