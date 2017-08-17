@@ -55,8 +55,15 @@ else
 DOCKER_TAG = $(ARCH)-$(CODE_VERSION)-$(GIT_COMMIT)$(DOCKER_TAG_SUFFIX)
 endif
 
-buildlocalppc:
-	# Build Docker image
+buildlocalppccpu: # Build PPC64LE CPU Docker image
+	@docker build \
+		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
+		--build-arg VERSION=$(CODE_VERSION) \
+		--build-arg VCS_URL=`git config --get remote.origin.url` \
+		--build-arg VCS_REF=$(GIT_COMMIT) \
+		-f Dockerfile.ppc64le_cpu \
+		-t $(DOCKER_IMAGE):cpu-$(DOCKER_TAG) .
+buildlocalppcgpu: # Build PPC64LE GPU Docker image
 	@docker build \
 		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
 		--build-arg VERSION=$(CODE_VERSION) \
@@ -64,7 +71,7 @@ buildlocalppc:
 		--build-arg VCS_REF=$(GIT_COMMIT) \
 		-f Dockerfile.ppc64le_gpu \
 		-t $(DOCKER_IMAGE):gpu-$(DOCKER_TAG) .
-buildlocalamd64gpu:
+buildlocalamd64gpu: # Build AMD64 GPU Docker image
 	# Build Docker image
 	@docker build \
 		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
@@ -73,7 +80,7 @@ buildlocalamd64gpu:
 		--build-arg VCS_REF=$(GIT_COMMIT) \
 		-f Dockerfile.amd64_gpu \
 		-t $(DOCKER_IMAGE):gpu-$(DOCKER_TAG) .
-buildlocalamd64cpu:
+buildlocalamd64cpu:  # Build AMD64 CPU Docker image
 	# Build Docker image
 	@docker build \
 		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
@@ -86,12 +93,11 @@ buildlocalamd64cpu:
 buildlocalamd64: buildlocalamd64cpu
 
 
-docker_push:
-	# Tag image as latest
+docker_push: # Tag image as latest and Push to DockerHub
 	docker tag $(DOCKER_IMAGE):cpu-$(DOCKER_TAG) $(DOCKER_IMAGE):cpu-latest
 	docker tag $(DOCKER_IMAGE):gpu-$(DOCKER_TAG) $(DOCKER_IMAGE):gpu-latest
 
-	# Push to DockerHub
+
 	docker push $(DOCKER_IMAGE):cpu-$(DOCKER_TAG)
 	docker push $(DOCKER_IMAGE):gpu-$(DOCKER_TAG)
 	docker push $(DOCKER_IMAGE):cpu-latest
@@ -100,5 +106,10 @@ docker_push:
 output:
 	@echo Docker Image: $(DOCKER_IMAGE):$(DOCKER_TAG)
 
+# Absolutely awesome: http://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
+help:
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+.PHONY: help
 
 ## See https://github.com/microscaling/microscaling/blob/master/Makefile
