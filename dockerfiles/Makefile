@@ -19,7 +19,7 @@ ARCH ?= $(shell go env GOARCH)
 GIT_COMMIT = $(strip $(shell git rev-parse --short HEAD))
 
 # Get the version number from the code
-CODE_VERSION = $(strip $(shell cat ../VERSION))
+CODE_VERSION = v$(strip $(shell cat ../VERSION))
 
 
 # Find out if the working directory is clean
@@ -38,8 +38,6 @@ DOCKER_TAG = $(CODE_VERSION)
 ifndef CODE_VERSION
 $(error You need to create a VERSION file to build a release)
 endif
-
-CODE_VERSION = v$(CODE_VERSION)
 
 # See what commit is tagged to match the version
 VERSION_COMMIT = $(strip $(shell git rev-list $(CODE_VERSION) -n 1 | cut -c1-7))
