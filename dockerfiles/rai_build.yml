@@ -6,8 +6,8 @@ resources:
   network: false
 commands:
   build_image:
-    image_name: carml/go-caffe2:cpu-ppc64le-latest
-    dockerfile: ./Dockerfile.ppc64le_cpu
+    image_name: carml/go-caffe2:gpu-ppc64le-latest
+    dockerfile: ./Dockerfile.ppc64le_gpu
     # no_cache: true
     push:
       push: true

@@ -1,4 +1,4 @@
-FROM nvidia/cuda:8.0-cudnn7-devel-ubuntu16.04
+FROM nvidia/cuda-ppc64le:8.0-cudnn6-devel-ubuntu16.04
 MAINTAINER Abdul Dakkak <dakkak@illinois.edu>
 
 # caffe2 install with cpu support
@@ -51,7 +51,7 @@ RUN cd caffe2 && mkdir build && cd build \
 #Install Go
 ENV GIMME_GO_VERSION "1.8.3"
 ENV GIMME_OS "linux"
-ENV GIMME_ARCH "amd64"
+ENV GIMME_ARCH "ppc64le"
 
 ADD https://raw.githubusercontent.com/travis-ci/gimme/master/gimme /usr/bin/gimme
 RUN chmod +x /usr/bin/gimme

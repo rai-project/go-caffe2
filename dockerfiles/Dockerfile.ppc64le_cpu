@@ -1,20 +1,6 @@
 FROM ppc64le/ubuntu:16.04
 MAINTAINER Abdul Dakkak <dakkak@illinois.edu>
 
- # Build-time metadata as defined at http://label-schema.org
-ARG BUILD_DATE
-ARG VCS_REF
-ARG VERSION
-LABEL org.carml.go-caffe2.build-date=$BUILD_DATE \
-      org.carml.go-caffe2.name="go-caffe2 bindings for go" \
-      org.carml.go-caffe2.description="" \
-      org.carml.go-caffe2.url="https://www.carml.org/" \
-      oorg.carml.go-caffe2.vcs-ref=$VCS_REF \
-      org.carml.go-caffe2.vcs-url="https://github.com/rai-project/go-caffe2" \
-      org.carml.go-caffe2.vendor="CarML" \
-      org.carml.go-caffe2.version=$VERSION \
-      org.carml.go-caffe2.schema-version="1.0"
-
 # caffe2 install with cpu support
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -69,7 +55,6 @@ RUN cd caffe2 && mkdir build && cd build \
 ENV GIMME_GO_VERSION "1.8.3"
 ENV GIMME_OS "linux"
 ENV GIMME_ARCH "ppc64le"
-ENV GIMME_TYPE "binary"
 
 ADD https://raw.githubusercontent.com/travis-ci/gimme/master/gimme /usr/bin/gimme
 RUN chmod +x /usr/bin/gimme
@@ -93,3 +78,17 @@ RUN git clone --depth=1 --branch=master https://${PKG}.git . && \
     go build -a -installsuffix cgo -ldflags "-s -w -X ${PKG}/Version=${VERSION} -X ${PKG}/GitCommit=${VCS_REF} -X ${PKG}/BuildDate=${BUILD_DATE}"&& \
     go install && \
     rm -fr vendor
+
+ # Build-time metadata as defined at http://label-schema.org
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION
+LABEL org.carml.go-caffe2.build-date=$BUILD_DATE \
+      org.carml.go-caffe2.name="go-caffe2 bindings for go" \
+      org.carml.go-caffe2.description="" \
+      org.carml.go-caffe2.url="https://www.carml.org/" \
+      oorg.carml.go-caffe2.vcs-ref=$VCS_REF \
+      org.carml.go-caffe2.vcs-url="https://github.com/rai-project/go-caffe2" \
+      org.carml.go-caffe2.vendor="CarML" \
+      org.carml.go-caffe2.version=$VERSION \
+      org.carml.go-caffe2.schema-version="1.0"
