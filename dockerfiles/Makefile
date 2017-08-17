@@ -1,5 +1,5 @@
 
-default: buildlocalamd64
+default: docker_build_cpu
 
 # Build Docker image
 build: docker_build output
