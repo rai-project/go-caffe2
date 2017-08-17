@@ -43,7 +43,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 ########## INSTALLATION STEPS ###################
-RUN git clone --depth 1 --recursive https://github.com/caffe2/caffe2.git
+RUN git clone  --single-branch --depth 1 --recursive https://github.com/caffe2/caffe2.git  && \
+    cd caffe2 && \
+    cd third_party/benchmark && \
+    git checkout master && \
+    git pull && \
+    cd ../..
 RUN cd caffe2 && mkdir build && cd build \
     && cmake .. \
     -DUSE_CUDA=OFF \
