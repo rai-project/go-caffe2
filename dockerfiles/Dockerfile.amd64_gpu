@@ -7,6 +7,7 @@ ENV CAFFE2_VERSION 0.8.1
 ARG BUILD_DATE
 ARG VCS_REF
 ARG VERSION
+ARG ARCH
 LABEL org.carml.go-caffe2.build-date=$BUILD_DATE \
       org.carml.go-caffe2.name="go-caffe2 bindings for go with cuda support" \
       org.carml.go-caffe2.description="" \
@@ -14,8 +15,9 @@ LABEL org.carml.go-caffe2.build-date=$BUILD_DATE \
       org.carml.go-caffe2.vcs-ref=$VCS_REF \
       org.carml.go-caffe2.vcs-url="https://github.com/rai-project/go-caffe2" \
       org.carml.go-caffe2.vendor="CarML" \
+      org.carml.go-caffe2.arch=$ARCH \
       org.carml.go-caffe2.version=$VERSION \
-      org.carml.go-caffe2.caffe_version=$CAFFE2_VERSION \
+      org.carml.go-caffe2.framework_version=$CAFFE2_VERSION \
       org.carml.go-caffe2.schema-version="1.0"
 
 
@@ -80,7 +82,11 @@ RUN cd caffe2 && mkdir build && cd build \
 #Install Go
 ENV GIMME_GO_VERSION "1.8.3"
 ENV GIMME_OS "linux"
-ENV GIMME_ARCH "amd64"
+ENV GIMME_ARCH $(ARCH)
+
+LABEL org.golang.version=$GIMME_GO_VERSION
+LABEL org.golang.os=$GIMME_OS
+LABEL org.golang.arch=$GIMME_ARCH
 
 ADD https://raw.githubusercontent.com/travis-ci/gimme/master/gimme /usr/bin/gimme
 RUN chmod +x /usr/bin/gimme
