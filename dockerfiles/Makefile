@@ -39,6 +39,8 @@ ifndef CODE_VERSION
 $(error You need to create a VERSION file to build a release)
 endif
 
+CODE_VERSION = v$(CODE_VERSION)
+
 # See what commit is tagged to match the version
 VERSION_COMMIT = $(strip $(shell git rev-list $(CODE_VERSION) -n 1 | cut -c1-7))
 ifneq ($(VERSION_COMMIT), $(GIT_COMMIT))
