@@ -24,12 +24,16 @@ LABEL org.carml.go-caffe2.build-date=$BUILD_DATE \
 # caffe2 install with cpu support
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    software-properties-common && \
+      build-essential \
+      software-properties-common && \
     add-apt-repository ppa:ubuntu-toolchain-r/test -y && \
     apt-get update && apt-get install -y --no-install-recommends \
       gcc-5 \
       g++-5  \
+      libjpeg-turbo8-dev \
+      libturbojpeg \
+      libvips-dev \
+      libvips42 \
       cmake \
       curl \
       git \
