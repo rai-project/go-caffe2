@@ -69,7 +69,7 @@ RUN cd $CAFFE2_SRC_DIR && mkdir build && cd build \
       -DUSE_NNPACK=OFF \
       -DUSE_GLOO=OFF \
       -DUSE_NCCL=OFF \
-    && make -j"$(nproc)" install \
+    && make install \
     && ldconfig \
     && make clean \
     && cd .. \
