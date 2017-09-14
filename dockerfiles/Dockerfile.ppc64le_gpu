@@ -20,7 +20,23 @@ LABEL org.carml.go-caffe2.build-date=$BUILD_DATE \
       org.carml.go-caffe2.framework_version=$FRAMEWORK_VERSION \
       org.carml.go-caffe2.schema-version="1.0"
 
-########## INSTALLATION STEPS ###################
+########## DEPENDENCIES INSTALLATION ###################
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libgoogle-glog-dev \
+        libprotobuf-dev \
+        protobuf-compiler \
+        libgflags-dev \
+        libiomp-dev \
+        libleveldb-dev \
+        liblmdb-dev \
+        libopenmpi-dev \
+        libsnappy-dev \
+        openmpi-bin \
+        openmpi-doc \
+        libeigen3-dev \
+    rm -rf /var/lib/apt/lists/*
+
+########## LIBRARY INSTALLATION ###################
 RUN git clone --single-branch --depth 1 --branch $FRAMEWORK_VERSION --recursive https://github.com/caffe2/caffe2.git  && \
     cd caffe2 && \
     cd third_party/benchmark && \
@@ -42,7 +58,7 @@ RUN cd caffe2 && mkdir build && cd build \
     && cd .. \
     && rm -rf build
 
-# Get Go bindings
+########## GO BINDING INSTALLATION ###################
 ENV PKG github.com/rai-project/go-caffe2
 WORKDIR $GOPATH/src/$PKG
 
