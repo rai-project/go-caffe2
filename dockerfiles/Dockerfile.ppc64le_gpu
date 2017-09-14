@@ -59,7 +59,7 @@ RUN cd $CAFFE2_SRC_DIR && \
     git checkout master && \
     git pull
 
-RUN cd caffe2 && mkdir build && cd build \
+RUN cd $CAFFE2_SRC_DIR && mkdir build && cd build \
     && cmake .. \
       -DCUDA_ARCH_NAME=Manual \
       -DCUDA_ARCH_BIN="35 52 60 61" \

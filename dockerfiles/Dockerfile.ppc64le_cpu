@@ -59,7 +59,7 @@ RUN cd $CAFFE2_SRC_DIR && \
     git checkout master && \
     git pull
 
-RUN cd caffe2 && mkdir build && cd build \
+RUN cd $CAFFE2_SRC_DIR && mkdir build && cd build \
     && cmake .. \
       -DUSE_CUDA=OFF \
       -DUSE_NNPACK=OFF \
