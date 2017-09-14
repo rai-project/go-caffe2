@@ -1,7 +1,7 @@
 package caffe2
 
 var (
-	Version   = "0.3.14"
+	Version   = "0.3.15"
 	BuildDate = "undefined"
 	GitCommit = "undefined"
 )
