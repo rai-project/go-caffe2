@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libsnappy-dev \
         openmpi-bin \
         openmpi-doc \
-        libeigen3-dev \
+        libeigen3-dev && \
     rm -rf /var/lib/apt/lists/*
 
 ########## LIBRARY INSTALLATION ###################
