@@ -24,10 +24,6 @@ CODE_VERSION = v$(strip $(shell cat ../VERSION))
 
 # Find out if the working directory is clean
 GIT_NOT_CLEAN_CHECK = $(shell git status --porcelain)
-ifneq (x$(GIT_NOT_CLEAN_CHECK), x)
-DOCKER_TAG_SUFFIX = "-dirty"
-endif
-
 
 
 # If we're releasing to Docker Hub, and we're going to mark it with the latest tag, it should exactly match a version release
@@ -45,10 +41,6 @@ ifneq ($(VERSION_COMMIT), $(GIT_COMMIT))
 $(error echo You are trying to push a build based on commit $(GIT_COMMIT) but the tagged release version is $(VERSION_COMMIT))
 endif
 
-# Don't push to Docker Hub if this isn't a clean repo
-ifneq (x$(GIT_NOT_CLEAN_CHECK), x)
-$(error echo You are trying to release a build based on a dirty repo)
-endif
 
 else
 # Add the commit ref for development builds. Mark as dirty if the working directory isn't clean
@@ -60,7 +52,8 @@ BUILD_ARGS = --build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
 		         --build-arg VCS_URL=`git config --get remote.origin.url` \
 		         --build-arg VCS_REF=$(GIT_COMMIT) \
 		         --build-arg ARCH=$(ARCH) \
-						 --build-arg FRAMEWORK_VERSION="master"
+						 --build-arg FRAMEWORK_VERSION="v0.8.1" \
+						 --build-arg CUB_VERSION="1.7.3"
 
 docker_build_gpu: # Build GPU Docker image
 	@docker build $(BUILD_ARGS) \

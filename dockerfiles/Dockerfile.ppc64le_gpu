@@ -8,6 +8,7 @@ ARG VCS_URL
 ARG VERSION
 ARG ARCH
 ARG FRAMEWORK_VERSION
+ARG CUB_VERSION
 LABEL org.carml.go-caffe2.build-date=$BUILD_DATE \
       org.carml.go-caffe2.name="go-caffe2 bindings for go with cuda support" \
       org.carml.go-caffe2.description="" \
@@ -18,7 +19,8 @@ LABEL org.carml.go-caffe2.build-date=$BUILD_DATE \
       org.carml.go-caffe2.arch=$ARCH \
       org.carml.go-caffe2.version=$VERSION \
       org.carml.go-caffe2.framework_version=$FRAMEWORK_VERSION \
-      org.carml.go-caffe2.schema-version="1.0"
+      org.carml.go-caffe2.schema-version="1.0" \
+      org.carml.go-caffe2.cub.version=$CUB_VERSION
 
 ########## DEPENDENCIES INSTALLATION ###################
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -37,12 +39,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 ########## LIBRARY INSTALLATION ###################
-RUN git clone --single-branch --depth 1 --branch $FRAMEWORK_VERSION --recursive https://github.com/caffe2/caffe2.git  && \
-    cd caffe2 && \
+
+WORKDIR /opt
+ENV CAFFE2_SRC_DIR /opt/caffe2
+
+RUN git clone --branch $FRAMEWORK_VERSION https://github.com/caffe2/caffe2.git
+
+WORKDIR $CAFFE2_SRC_DIR
+
+RUN cd $CAFFE2_SRC_DIR && \
+    git submodule init && \
+    git rm third_party/cub && \
+    cd third_party && \
+    git clone --branch $CUB_VERSION https://github.com/NVlabs/cub
+
+RUN cd $CAFFE2_SRC_DIR && \
+    git submodule update --init --recursive && \
     cd third_party/benchmark && \
     git checkout master && \
-    git pull && \
-    cd ../..
+    git pull
+
 RUN cd caffe2 && mkdir build && cd build \
     && cmake .. \
       -DCUDA_ARCH_NAME=Manual \
