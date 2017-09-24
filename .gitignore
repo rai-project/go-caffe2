@@ -1,2 +1,5 @@
 *.d
 *.o
+
+*.DS_Store
+tmp

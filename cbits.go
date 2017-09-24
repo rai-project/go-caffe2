@@ -27,19 +27,19 @@ func New(initNetFile, predictNetFile string) (*Predictor, error) {
 	if !com.IsFile(predictNetFile) {
 		return nil, errors.Errorf("file %s not found", predictNetFile)
 	}
-  ctx := C.New(C.CString(initNetFile), C.CString(predictNetFile))
-  if ctx == nil {
-    return nil, errors.New("unable to create caffe2 predictor context")
-  }
+	ctx := C.New(C.CString(initNetFile), C.CString(predictNetFile))
+	if ctx == nil {
+		return nil, errors.New("unable to create caffe2 predictor context")
+	}
 	return &Predictor{
 		ctx: ctx,
 	}, nil
 }
 
-func (p *Predictor) Predict(imageData []float32, channels int,
+func (p *Predictor) Predict(imageData []float32, batch int, channels int,
 	width int, height int) (Predictions, error) {
 	ptr := (*C.float)(unsafe.Pointer(&imageData[0]))
-	r := C.Predict(p.ctx, ptr, C.int(channels), C.int(width), C.int(height))
+	r := C.Predict(p.ctx, ptr, C.int(batch), C.int(channels), C.int(width), C.int(height))
 	defer C.free(unsafe.Pointer(r))
 	js := C.GoString(r)
 

@@ -25,7 +25,6 @@ PredictorContext New(char *predict_net_file, char *init_net_file) {
     CAFFE_ENFORCE(ReadProtoFromFile(init_net_file, &init_net));
     CAFFE_ENFORCE(ReadProtoFromFile(predict_net_file, &predict_net));
     const auto ctx = new Predictor(init_net, predict_net);
-    std::cout << "..  " << predict_net.external_input_size() << "\n";
     return (void *)ctx;
   } catch (const std::invalid_argument &ex) {
     LOG(ERROR) << "exception: " << ex.what();
@@ -34,28 +33,31 @@ PredictorContext New(char *predict_net_file, char *init_net_file) {
   }
 }
 
-const char *Predict(PredictorContext pred, float *imageData, const int channels,
-  const int width, const int height) {
-  const auto image_size = channels * width * height;
-
+const char *Predict(PredictorContext pred, float *imageData, const int batch,
+                    const int channels, const int width, const int height) {
+  const auto image_size = batch * channels * width * height;
   std::vector<float> data;
   data.reserve(image_size);
   std::copy(imageData, imageData + image_size, data.begin());
-  std::vector<TIndex> dims({1, channels, width, height});
+  std::vector<TIndex> dims({batch, channels, width, height});
 
   TensorCPU input;
   input.Resize(dims);
   input.ShareExternalPointer(data.data());
 
-  Predictor::TensorVector inputVec({&input}), outputVec{};
+  Predictor::TensorVector inputVec{&input}, outputVec{};
   auto predictor = (Predictor *)pred;
   predictor->run(inputVec, &outputVec);
   auto &output = *(outputVec[0]);
+  const auto len = output.size() / batch;
   const auto &probs = output.data<float>();
 
   std::vector<Prediction> predictions;
-  for (int idx = 0; idx < output.size(); idx++) {
-    predictions.emplace_back(std::make_pair(idx, probs[idx]));
+  predictions.reserve(output.size());
+  for (int cnt = 0; cnt < batch; cnt++) {
+    for (int idx = 0; idx < len; idx++) {
+      predictions.emplace_back(std::make_pair(idx, probs[cnt * len + idx]));
+    }
   }
 
   json preds = json::array();
