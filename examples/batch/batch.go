@@ -89,9 +89,6 @@ func main() {
 		panic(err)
 	}
 
-	padding := make([]float32, (batch-cnt)*3*224*224)
-	input = append(input, padding...)
-
 	// create predictor
 	predictor, err := caffe2.New(graph, weights)
 	if err != nil {

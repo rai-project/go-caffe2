@@ -10,6 +10,7 @@ package caffe2
 import "C"
 import (
 	"encoding/json"
+	"fmt"
 	"unsafe"
 
 	"github.com/Unknwon/com"
@@ -36,10 +37,23 @@ func New(initNetFile, predictNetFile string) (*Predictor, error) {
 	}, nil
 }
 
-func (p *Predictor) Predict(imageData []float32, batch int, channels int,
+func (p *Predictor) Predict(data []float32, batchSize int, channels int,
 	width int, height int) (Predictions, error) {
-	ptr := (*C.float)(unsafe.Pointer(&imageData[0]))
-	r := C.Predict(p.ctx, ptr, C.int(batch), C.int(channels), C.int(width), C.int(height))
+	// check input
+	if data == nil || len(data) < 1 {
+		return nil, fmt.Errorf("intput data nil or empty")
+	}
+
+	if batchSize != 1 {
+		dataLen := int64(len(data))
+		shapeLen := int64(width * height * channels)
+		inputCount := dataLen / shapeLen
+		padding := make([]float32, (int64(batchSize)-inputCount)*shapeLen)
+		data = append(data, padding...)
+	}
+
+	ptr := (*C.float)(unsafe.Pointer(&data[0]))
+	r := C.Predict(p.ctx, ptr, C.int(batchSize), C.int(channels), C.int(width), C.int(height))
 	defer C.free(unsafe.Pointer(r))
 	js := C.GoString(r)
 
