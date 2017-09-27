@@ -11,9 +11,10 @@
 	"C_Cpp.clang_format_sortIncludes": true,
 	"C_Cpp.clang_format_formatOnSave": true,
 	"files.associations": {
-		"*.cu": "cpp",
 		"*.mc": "cpp",
+		"*.cu": "cpp",
 		"*.m": "mathematica",
+		"*.mt": "mathematica",
 		"xmemory0": "cpp",
 		"xstring": "cpp",
 		"xutility": "cpp",
@@ -61,7 +62,13 @@
 		"utility": "cpp",
 		"ios": "cpp",
 		"hashtable": "cpp",
-		"string_view": "cpp"
+		"string_view": "cpp",
+		"__nullptr": "cpp",
+		"random": "cpp",
+		"istream": "cpp",
+		"thread": "cpp",
+		"tuple": "cpp",
+		"queue": "cpp"
 	},
 	"editor.insertSpaces": true
 }
