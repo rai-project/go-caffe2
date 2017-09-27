@@ -50,7 +50,8 @@ class TimeObserver final : public ObserverBase<T> {
 
 template <>
 bool TimeObserver<NetBase>::Start() {
-  *this->prof_ = new profile("name", "metadata");
+  const auto net = this->subject();
+  *this->prof_ = new profile(net->Name(), "caffe2_observer");
   for (auto *op : subject_->GetOperators()) {
     op->SetObserver(caffe2::make_unique<TimeObserver<OperatorBase>>(op, prof_));
   }
@@ -68,9 +69,14 @@ bool TimeObserver<NetBase>::Stop() {
 
 template <>
 bool TimeObserver<OperatorBase>::Start() {
-  const auto op = this->subject();
-  (void)op;
-  this->entry_ = new profile_entry("entry_name", "entry_metadata");
+  const auto &op = this->subject();
+  std::string name{""}, metadata{""};
+  if (op->has_debug_def()) {
+    const auto &opdef = op->debug_def();
+    name = opdef.type();
+    metadata = opdef.name();
+  }
+  this->entry_ = new profile_entry(name, metadata);
   return true;
 }
 

@@ -82,7 +82,14 @@ func main() {
 		panic(err)
 	}
 
+	predictor.StartProfiling("test", "")
 	predictions, err := predictor.Predict(res, 1, 3, 227, 227)
+	predictor.EndProfiling()
+	profile, _ := predictor.ReadProfile()
+	// out, _ := json.MarshalIndent(profile, "", "    ")
+	fmt.Println(profile)
+	predictor.DisableProfiling()
+
 	predictions.Sort()
 
 	var labels []string

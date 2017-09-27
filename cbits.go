@@ -37,6 +37,34 @@ func New(initNetFile, predictNetFile string) (*Predictor, error) {
 	}, nil
 }
 
+func (p *Predictor) StartProfiling(name, metadata string) error {
+	cname := C.CString(name)
+	cmetadata := C.CString(metadata)
+	defer C.free(unsafe.Pointer(cname))
+	defer C.free(unsafe.Pointer(cmetadata))
+	C.StartProfiling(p.ctx, cname, cmetadata)
+	return nil
+}
+
+func (p *Predictor) EndProfiling() error {
+	C.EndProfiling(p.ctx)
+	return nil
+}
+
+func (p *Predictor) DisableProfiling() error {
+	C.DisableProfiling(p.ctx)
+	return nil
+}
+
+func (p *Predictor) ReadProfile() (string, error) {
+	cstr := C.ReadProfile(p.ctx)
+	if cstr == nil {
+		return "", errors.New("failed to read nil profile")
+	}
+	defer C.free(unsafe.Pointer(cstr))
+	return C.GoString(cstr), nil
+}
+
 func (p *Predictor) Predict(data []float32, batchSize int, channels int,
 	width int, height int) (Predictions, error) {
 	// check input
