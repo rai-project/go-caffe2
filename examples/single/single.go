@@ -82,7 +82,7 @@ func main() {
 		panic(err)
 	}
 
-	predictor.StartProfiling("test", "")
+	predictor.StartProfiling("test", "net_metadata")
 	predictions, err := predictor.Predict(res, 1, 3, 227, 227)
 	predictor.EndProfiling()
 	profile, _ := predictor.ReadProfile()

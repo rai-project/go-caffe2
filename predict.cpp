@@ -31,19 +31,40 @@ struct PredictorObject {
   caffe2::Predictor *const &context() { return ctx_; }
 
   caffe2::Predictor *const ctx_;
+  bool profile_enabled_{false};
+  std::string profile_name_{""}, profile_metadata_{""};
   profile *prof_{nullptr};
 };
+
+static void delete_prof(profile **prof) {
+  if (prof == nullptr) {
+    return;
+  }
+  if (*prof == nullptr) {
+    return;
+  }
+  auto p = *prof;
+  p->reset();
+  delete p;
+  *prof = nullptr;
+}
 
 template <class T>
 class TimeObserver final : public ObserverBase<T> {
  public:
-  explicit TimeObserver<T>(T *subject, profile **prof)
-      : ObserverBase<T>(subject), prof_(prof) {}
+  explicit TimeObserver<T>(T *subject, profile **prof,
+                           std::string profile_name = "",
+                           std::string profile_metadata = "")
+      : ObserverBase<T>(subject),
+        prof_(prof),
+        profile_name_(profile_name),
+        profile_metadata_(profile_metadata) {}
   ~TimeObserver() {}
 
  private:
-  profile **prof_;
-  profile_entry *entry_;
+  profile **prof_{nullptr};
+  profile_entry *entry_{nullptr};
+  std::string profile_name_{""}, profile_metadata_{""};
   bool Start() override;
   bool Stop() override;
 };
@@ -51,7 +72,11 @@ class TimeObserver final : public ObserverBase<T> {
 template <>
 bool TimeObserver<NetBase>::Start() {
   const auto net = this->subject();
-  *this->prof_ = new profile(net->Name(), "caffe2_observer");
+  auto net_name = net->Name();
+  if (net_name.empty()) {
+    net_name = profile_name_;
+  }
+  *this->prof_ = new profile(net_name, profile_metadata_);
   for (auto *op : subject_->GetOperators()) {
     op->SetObserver(caffe2::make_unique<TimeObserver<OperatorBase>>(op, prof_));
   }
@@ -123,9 +148,10 @@ const char *Predict(PredictorContext pred0, float *imageData, const int batch,
   auto ws = predictor->ws();
   auto net_def = predictor->def();
   auto net = ws->GetNet(net_def.name());
-  if (obj->prof_ != nullptr) {
+  if (obj->profile_enabled_) {
     unique_ptr<TimeObserver<NetBase>> net_ob =
-        make_unique<TimeObserver<NetBase>>(net, &obj->prof_);
+        make_unique<TimeObserver<NetBase>>(net, &obj->prof_, obj->profile_name_,
+                                           obj->profile_metadata_);
     net->SetObserver(std::move(net_ob));
   } else {
     net->RemoveObserver();
@@ -156,6 +182,7 @@ const char *Predict(PredictorContext pred0, float *imageData, const int batch,
 void Delete(PredictorContext pred) {
   auto predictor = (PredictorObject *)pred;
   if (predictor) {
+    delete_prof(&predictor->prof_);
     delete predictor;
   }
 }
@@ -176,7 +203,9 @@ void StartProfiling(PredictorContext pred, const char *name,
   if (metadata == nullptr) {
     metadata = "";
   }
-  predictor->prof_ = new profile(name, metadata);
+  predictor->profile_enabled_ = true;
+  predictor->profile_name_ = std::string(name);
+  predictor->profile_metadata_ = std::string(metadata);
 }
 
 void EndProfiling(PredictorContext pred) {
@@ -188,11 +217,9 @@ void EndProfiling(PredictorContext pred) {
 
 void DisableProfiling(PredictorContext pred) {
   auto predictor = (PredictorObject *)pred;
-  if (predictor->prof_) {
-    predictor->prof_->reset();
-    delete predictor->prof_;
-  }
-  predictor->prof_ = nullptr;
+  delete_prof(&predictor->prof_);
+  predictor->profile_name_ = std::string("");
+  predictor->profile_metadata_ = std::string("");
 }
 
 char *ReadProfile(PredictorContext pred) {
