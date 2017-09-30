@@ -7,6 +7,7 @@ import "C"
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 	"unsafe"
 
 	"github.com/Unknwon/com"
@@ -17,7 +18,13 @@ type Predictor struct {
 	ctx C.PredictorContext
 }
 
+func initialize() {
+	C.Init()
+}
+
 func New(initNetFile, predictNetFile string) (*Predictor, error) {
+	var once sync.Once
+	once.Do(initialize)
 	if !com.IsFile(initNetFile) {
 		return nil, errors.Errorf("file %s not found", initNetFile)
 	}
@@ -91,8 +98,4 @@ func (p *Predictor) Predict(data []float32, batchSize int, channels int,
 
 func (p *Predictor) Close() {
 	C.Delete(p.ctx)
-}
-
-func init() {
-	C.Init()
 }

@@ -11,9 +11,11 @@
 #include <caffe2/core/operator.h>
 #include <caffe2/utils/proto_utils.h>
 
+#include <caffe2/core/context_gpu.h>
+
+#include "carml_predictor.h"
 #include "json.hpp"
 #include "predict.hpp"
-#include "predictor.h"
 #include "timer.h"
 #include "timer.impl.hpp"
 
@@ -25,11 +27,13 @@ using json = nlohmann::json;
 using Prediction = std::pair<int, float>;
 
 struct PredictorObject {
-  PredictorObject(Predictor *const ctx) : ctx_(ctx){};
+  using Context = CUDAContext;
 
-  Predictor *const &context() { return ctx_; }
+  PredictorObject(carml::Predictor<Context> *const ctx) : ctx_(ctx){};
 
-  Predictor *const ctx_;
+  carml::Predictor<Context> *const &context() { return ctx_; }
+
+  carml::Predictor<Context> *const ctx_;
   bool profile_enabled_{false};
   std::string profile_name_{""}, profile_metadata_{""};
   profile *prof_{nullptr};
@@ -112,15 +116,29 @@ bool TimeObserver<OperatorBase>::Stop() {
   return true;
 }
 
+bool SetCUDA() {
+  DeviceOption option;
+  option.set_device_type(CUDA);
+#ifdef WITH_CUDA
+  new CUDAContext(option);
+  std::cout << std::endl << "using CUDA" << std::endl;
+  return true;
+#else
+  return false;
+#endif
+}
+
 PredictorContext New(char *predict_net_file, char *init_net_file) {
   try {
+    SetCUDA();
+  } catch (...) {
+  }
+  try {
     NetDef init_net, predict_net;
-    Workspace ws;
     CAFFE_ENFORCE(ReadProtoFromFile(init_net_file, &init_net));
     CAFFE_ENFORCE(ReadProtoFromFile(predict_net_file, &predict_net));
-    // init_net.mutable_device_option()->set_device_type(CUDA);
-    // predict_net.mutable_device_option()->set_device_type(CUDA);
-    const auto ctx = new Predictor(init_net, predict_net, &ws);
+
+    const auto ctx = new carml::Predictor<CUDAContext>(init_net, predict_net);
     auto p = new PredictorObject(ctx);
     return (PredictorContext)p;
   } catch (const std::invalid_argument &ex) {
@@ -140,16 +158,15 @@ const char *Predict(PredictorContext pred0, float *imageData, const int batch,
   std::copy(imageData, imageData + image_size, data.begin());
   std::vector<TIndex> dims({batch, channels, width, height});
 
-  TensorCPU input;
+  TensorCUDA input;
   input.Resize(dims);
   input.ShareExternalPointer(data.data());
 
-  Predictor::TensorVector inputVec{&input}, outputVec{};
+  carml::Predictor<CUDAContext>::TensorDeviceVector inputVec{&input},
+      outputVec{};
   auto predictor = obj->context();
 
-  auto ws = predictor->ws();
-  auto net_def = predictor->def();
-  auto net = ws->GetNet(net_def.name());
+  auto net = predictor->net();
   if (obj->profile_enabled_) {
     unique_ptr<TimeObserver<NetBase>> net_ob =
         make_unique<TimeObserver<NetBase>>(net, &obj->prof_, obj->profile_name_,
@@ -193,6 +210,8 @@ void Init() {
   int dummy_argc = 1;
   const char *dummy_name = "go-caffe2";
   char **dummy_argv = const_cast<char **>(&dummy_name);
+  std::cout << "calling init...."
+            << "\n";
   GlobalInit(&dummy_argc, &dummy_argv);
 }
 
