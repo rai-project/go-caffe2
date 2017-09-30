@@ -6,7 +6,6 @@
 #include <vector>
 
 #include <caffe2/core/init.h>
-#include <caffe2/core/predictor.h>
 
 #include <caffe2/core/common.h>
 #include <caffe2/core/observer.h>
@@ -19,6 +18,7 @@
 
 #include "json.hpp"
 #include "predict.hpp"
+#include "predictor.h"
 #include "timer.h"
 #include "timer.impl.hpp"
 
@@ -30,15 +30,22 @@ using json = nlohmann::json;
 using Prediction = std::pair<int, float>;
 
 struct PredictorObject {
-  PredictorObject(caffe2::Predictor *const ctx) : ctx_(ctx){};
+  using Context = CUDAContext;
+  PredictorObject(Predictor<Context> *const ctx) : ctx_(ctx){};
 
-  caffe2::Predictor *const &context() { return ctx_; }
+  Predictor<Context> *const &context() { return ctx_; }
 
-  caffe2::Predictor *const ctx_;
+  Predictor<Context> *const ctx_;
   bool profile_enabled_{false};
   std::string profile_name_{""}, profile_metadata_{""};
   profile *prof_{nullptr};
 };
+
+static void SetCUDA() {
+DeviceOption option;
+option.set_device_type(CUDA);
+new CUDAContext(option);
+}
 
 static void delete_prof(profile **prof) {
   if (prof == nullptr) {
@@ -119,12 +126,13 @@ bool TimeObserver<OperatorBase>::Stop() {
 
 PredictorContext New(char *predict_net_file, char *init_net_file) {
   try {
+SetCUDA();
     NetDef init_net, predict_net;
     CAFFE_ENFORCE(ReadProtoFromFile(init_net_file, &init_net));
     CAFFE_ENFORCE(ReadProtoFromFile(predict_net_file, &predict_net));
        init_net.mutable_device_option()->set_device_type(CUDA);
      predict_net.mutable_device_option()->set_device_type(CUDA);
-const auto ctx = new Predictor(init_net, predict_net);
+    const auto ctx = new Predictor<CUDAContext>(init_net, predict_net);
     auto p = new PredictorObject(ctx);
     return (PredictorContext)p;
   } catch (const std::invalid_argument &ex) {
@@ -150,11 +158,11 @@ const char *Predict(PredictorContext pred0, float *imageData, const int batch,
   std::copy(imageData, imageData + image_size, data.begin());
   std::vector<TIndex> dims({batch, channels, width, height});
 
-  TensorCPU input;
+  TensorCUDA input;
   input.Resize(dims);
   input.ShareExternalPointer(data.data());
 
-  Predictor::TensorVector inputVec{&input}, outputVec{};
+  Predictor<CUDAContext>::TensorDeviceVector inputVec{&input}, outputVec{};
   auto predictor = obj->context();
 
   auto ws = predictor->ws();
@@ -206,9 +214,7 @@ void Init() {
   char **dummy_argv = const_cast<char **>(&dummy_name);
   GlobalInit(&dummy_argc, &dummy_argv);
 
-DeviceOption option;
-option.set_device_type(CUDA);
-new CUDAContext(option);
+SetCUDA();
 }
 
 void StartProfiling(PredictorContext pred, const char *name,

@@ -7,6 +7,7 @@ package caffe2
 // #cgo darwin LDFLAGS: -L/opt/caffe2/lib -lcaffe2 
 // #cgo ppc64le CXXFLAGS: -I/home/carml/frameworks/caffe2/include -DWITH_CUDA=1 -I/usr/local/cuda/include
 // #cgo ppc64le LDFLAGS: -L/home/carml/frameworks/caffe2/lib -lCaffe2_GPU -lCaffe2_CPU
+// #cgo ppc64le pkg-config: protobuf
 import "C"
 
 
