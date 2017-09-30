@@ -141,8 +141,8 @@ PredictorContext New(char *predict_net_file, char *init_net_file)
 {
   try
   {
-    Workspace workspace;
     SetCUDA();
+    Workspace workspace;
     NetDef init_net, predict_net;
     CAFFE_ENFORCE(ReadProtoFromFile(init_net_file, &init_net));
     CAFFE_ENFORCE(ReadProtoFromFile(predict_net_file, &predict_net));
@@ -178,11 +178,11 @@ const char *Predict(PredictorContext pred0, float *imageData, const int batch,
   std::copy(imageData, imageData + image_size, data.begin());
   std::vector<TIndex> dims({batch, channels, width, height});
 
-  TensorCUDA input;
+  TensorCPU input;
   input.Resize(dims);
   input.ShareExternalPointer(data.data());
 
-  Predictor<CUDAContext>::TensorDeviceVector inputVec{&input}, outputVec{};
+  Predictor<CPUContext>::TensorDeviceVector inputVec{&input}, outputVec{};
   auto predictor = obj->context();
 
   auto ws = predictor->ws();
@@ -200,7 +200,6 @@ const char *Predict(PredictorContext pred0, float *imageData, const int batch,
     net->RemoveObserver();
   }
 
-  net_def.mutable_device_option()->set_device_type(CUDA);
   predictor->run(inputVec, &outputVec);
   auto &output = *(outputVec[0]);
   const auto len = output.size() / batch;
