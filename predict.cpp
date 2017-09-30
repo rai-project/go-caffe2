@@ -129,7 +129,6 @@ bool SetCUDA() {
 }
 
 PredictorContext New(char *predict_net_file, char *init_net_file) {
-  
   try {
     NetDef init_net, predict_net;
     CAFFE_ENFORCE(ReadProtoFromFile(init_net_file, &init_net));
@@ -159,8 +158,7 @@ const char *Predict(PredictorContext pred0, float *imageData, const int batch,
   input.Resize(dims);
   input.ShareExternalPointer(data.data());
 
-  carml::Predictor<CUDAContext>::TensorCPUVector inputVec{&input},
-      outputVec{};
+  carml::Predictor<CUDAContext>::TensorCPUVector inputVec{input}, outputVec{};
   auto predictor = obj->context();
 
   auto net = predictor->net();

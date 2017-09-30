@@ -27,7 +27,7 @@ class Predictor {
   using TargetDevice = TargetDev;
   using TensorDevice = Tensor<TargetDevice>;
   using TensorDeviceVector = std::vector<TensorDevice*>;
-  using TensorCPUVector = std::vector<TensorCPU*>;
+  using TensorCPUVector = std::vector<TensorCPU>;
   // using TensorVector = std::vector<TensorCPU*>;
   // Runs the `init_net` once, then saves the `run_net` to be executed
   // in `::run`
@@ -96,20 +96,23 @@ class Predictor {
   }
 
   void shareInputTensor(Workspace* ws, const std::string& name,
-                        TensorCPU* input) {
+                        TensorCPU& input) {
     enforceIsTensor(ws, name);
     auto* blob = ws->GetBlob(name);
     CAFFE_ENFORCE(blob, "Blob: ", name, " does not exist");
     auto* tensor = blob->template GetMutable<TensorDevice>();
-    tensor->ResizeLike(*input);
-    tensor->ShareData(*input);
+    tensor->ResizeLike(input);
+    tensor->ShareData(input);
   }
 
-  TensorCPU* extractOutputTensor(Workspace* ws, const std::string& name) {
+  TensorCPU extractOutputTensor(Workspace* ws, const std::string& name) {
     enforceIsTensor(ws, name);
     auto* blob = ws->GetBlob(name);
     CAFFE_ENFORCE(blob, "Blob: ", name, " does not exist");
-    return new TensorCPU(blob->template Get<TensorCUDA>());
+    if (blob_.IsType<TensorCUDA>()) {
+      return TensorCPU(blob->template Get<TensorDevice>());
+    }
+    return blob->Get<TensorCPU>();
   }
 };
 }
