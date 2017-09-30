@@ -13,6 +13,10 @@
 #include <caffe2/core/operator.h>
 #include <caffe2/utils/proto_utils.h>
 
+#ifdef WITH_CUDA
+#include <caffe2/core/context_gpu.h>
+#endif
+
 #include "json.hpp"
 #include "predict.hpp"
 #include "timer.h"
@@ -118,7 +122,9 @@ PredictorContext New(char *predict_net_file, char *init_net_file) {
     NetDef init_net, predict_net;
     CAFFE_ENFORCE(ReadProtoFromFile(init_net_file, &init_net));
     CAFFE_ENFORCE(ReadProtoFromFile(predict_net_file, &predict_net));
-    const auto ctx = new Predictor(init_net, predict_net);
+       init_net.mutable_device_option()->set_device_type(CUDA);
+     predict_net.mutable_device_option()->set_device_type(CUDA);
+const auto ctx = new Predictor(init_net, predict_net);
     auto p = new PredictorObject(ctx);
     return (PredictorContext)p;
   } catch (const std::invalid_argument &ex) {
@@ -126,6 +132,12 @@ PredictorContext New(char *predict_net_file, char *init_net_file) {
     errno = EINVAL;
     return nullptr;
   }
+catch( const std::exception &e) {
+    LOG(ERROR) << "exception: " << e.what();
+    std::cout << "exception: " << e.what() << "\n";
+    errno = EINVAL;
+    return nullptr;
+}
 }
 
 const char *Predict(PredictorContext pred0, float *imageData, const int batch,
@@ -157,6 +169,7 @@ const char *Predict(PredictorContext pred0, float *imageData, const int batch,
     net->RemoveObserver();
   }
 
+    net_def.mutable_device_option()->set_device_type(CUDA);
   predictor->run(inputVec, &outputVec);
   auto &output = *(outputVec[0]);
   const auto len = output.size() / batch;
@@ -192,6 +205,10 @@ void Init() {
   const char *dummy_name = "go-caffe2";
   char **dummy_argv = const_cast<char **>(&dummy_name);
   GlobalInit(&dummy_argc, &dummy_argv);
+
+DeviceOption option;
+option.set_device_type(CUDA);
+new CUDAContext(option);
 }
 
 void StartProfiling(PredictorContext pred, const char *name,

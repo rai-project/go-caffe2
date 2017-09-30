@@ -15,6 +15,8 @@ using json = nlohmann::json;
 
 using timestamp_t = std::chrono::time_point<std::chrono::system_clock>;
 
+static std::mutex mut_;
+
 static timestamp_t now() { return std::chrono::system_clock::now(); }
 
 static double elapsed_time(timestamp_t start, timestamp_t end) {
@@ -130,5 +132,4 @@ struct profile {
   std::string metadata_{""};
   std::vector<profile_entry *> entries_{};
   timestamp_t start_{}, end_{};
-  std::mutex mut_;
 };
