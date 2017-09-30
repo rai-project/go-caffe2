@@ -27,6 +27,7 @@ class Predictor {
   using TargetDevice = TargetDev;
   using TensorDevice = Tensor<TargetDevice>;
   using TensorDeviceVector = std::vector<TensorDevice*>;
+  using TensorCPUVector = std::vector<TensorCPU*>;
   // using TensorVector = std::vector<TensorCPU*>;
   // Runs the `init_net` once, then saves the `run_net` to be executed
   // in `::run`
@@ -59,7 +60,7 @@ class Predictor {
   //   outputs->size() == run_net.external_inputs.size()
 
   // Returns true on success
-  bool run(const TensorDeviceVector& inputs, TensorDeviceVector* outputs) {
+  bool run(const TensorCPUVector& inputs, TensorCPUVector* outputs) {
     CAFFE_ENFORCE(inputs.size() <= input_names_.size());
 
     for (auto ii = 0; ii < inputs.size(); ii++) {
@@ -95,7 +96,7 @@ class Predictor {
   }
 
   void shareInputTensor(Workspace* ws, const std::string& name,
-                        TensorDevice* input) {
+                        TensorCPU* input) {
     enforceIsTensor(ws, name);
     auto* blob = ws->GetBlob(name);
     CAFFE_ENFORCE(blob, "Blob: ", name, " does not exist");
@@ -104,11 +105,11 @@ class Predictor {
     tensor->ShareData(*input);
   }
 
-  TensorDevice* extractOutputTensor(Workspace* ws, const std::string& name) {
+  TensorCPU* extractOutputTensor(Workspace* ws, const std::string& name) {
     enforceIsTensor(ws, name);
     auto* blob = ws->GetBlob(name);
     CAFFE_ENFORCE(blob, "Blob: ", name, " does not exist");
-    return blob->template GetMutable<TensorDevice>();
+    return new TensorCPU(blob->template Get<TensorCUDA>());
   }
 };
 }

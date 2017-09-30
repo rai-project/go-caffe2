@@ -155,11 +155,11 @@ const char *Predict(PredictorContext pred0, float *imageData, const int batch,
   std::copy(imageData, imageData + image_size, data.begin());
   std::vector<TIndex> dims({batch, channels, width, height});
 
-  TensorCUDA input;
+  TensorCPU input;
   input.Resize(dims);
   input.ShareExternalPointer(data.data());
 
-  carml::Predictor<CUDAContext>::TensorDeviceVector inputVec{&input},
+  carml::Predictor<CUDAContext>::TensorCPUVector inputVec{&input},
       outputVec{};
   auto predictor = obj->context();
 
@@ -174,12 +174,12 @@ const char *Predict(PredictorContext pred0, float *imageData, const int batch,
   }
 
   predictor->run(inputVec, &outputVec);
-  auto &output = *(outputVec[0]);
-  const auto len = output.size() / batch;
-  const auto &probs = output.data<float>();
+  auto output = outputVec[0];
+  auto len = output->size() / batch;
+  auto probs = output->mutable_data<float>();
 
   std::vector<Prediction> predictions;
-  predictions.reserve(output.size());
+  predictions.reserve(output->size());
   for (int cnt = 0; cnt < batch; cnt++) {
     for (int idx = 0; idx < len; idx++) {
       predictions.emplace_back(std::make_pair(idx, probs[cnt * len + idx]));
