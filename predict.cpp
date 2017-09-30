@@ -118,6 +118,8 @@ PredictorContext New(char *predict_net_file, char *init_net_file) {
     NetDef init_net, predict_net;
     CAFFE_ENFORCE(ReadProtoFromFile(init_net_file, &init_net));
     CAFFE_ENFORCE(ReadProtoFromFile(predict_net_file, &predict_net));
+    // init_net.mutable_device_option()->set_device_type(CUDA);
+    // predict_net.mutable_device_option()->set_device_type(CUDA);
     const auto ctx = new Predictor(init_net, predict_net);
     auto p = new PredictorObject(ctx);
     return (PredictorContext)p;
