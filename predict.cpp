@@ -11,6 +11,8 @@
 #include <caffe2/core/operator.h>
 #include <caffe2/utils/proto_utils.h>
 
+#include <caffe2/core/context_gpu.h>
+
 #include "json.hpp"
 #include "predict.hpp"
 #include "predictor.h"
@@ -24,22 +26,28 @@ using json = nlohmann::json;
 /* Pair (label, confidence) representing a prediction. */
 using Prediction = std::pair<int, float>;
 
-struct PredictorObject {
-  PredictorObject(Predictor *const ctx) : ctx_(ctx){};
+struct PredictorObject
+{
+  using Context = CUDAContext;
 
-  Predictor *const &context() { return ctx_; }
+  PredictorObject(Predictor<Context> *const ctx) : ctx_(ctx){};
 
-  Predictor *const ctx_;
+  Predictor<Context> *const &context() { return ctx_; }
+
+  Predictor<Context> *const ctx_;
   bool profile_enabled_{false};
   std::string profile_name_{""}, profile_metadata_{""};
   profile *prof_{nullptr};
 };
 
-static void delete_prof(profile **prof) {
-  if (prof == nullptr) {
+static void delete_prof(profile **prof)
+{
+  if (prof == nullptr)
+  {
     return;
   }
-  if (*prof == nullptr) {
+  if (*prof == nullptr)
+  {
     return;
   }
   auto p = *prof;
@@ -49,8 +57,9 @@ static void delete_prof(profile **prof) {
 }
 
 template <class T>
-class TimeObserver final : public ObserverBase<T> {
- public:
+class TimeObserver final : public ObserverBase<T>
+{
+public:
   explicit TimeObserver<T>(T *subject, profile **prof,
                            std::string profile_name = "",
                            std::string profile_metadata = "")
@@ -60,7 +69,7 @@ class TimeObserver final : public ObserverBase<T> {
         profile_metadata_(profile_metadata) {}
   ~TimeObserver() {}
 
- private:
+private:
   profile **prof_{nullptr};
   profile_entry *entry_{nullptr};
   std::string profile_name_{""}, profile_metadata_{""};
@@ -69,14 +78,17 @@ class TimeObserver final : public ObserverBase<T> {
 };
 
 template <>
-bool TimeObserver<NetBase>::Start() {
+bool TimeObserver<NetBase>::Start()
+{
   const auto net = this->subject();
   auto net_name = net->Name();
-  if (net_name.empty()) {
+  if (net_name.empty())
+  {
     net_name = profile_name_;
   }
   *this->prof_ = new profile(net_name, profile_metadata_);
-  for (auto *op : subject_->GetOperators()) {
+  for (auto *op : subject_->GetOperators())
+  {
     op->SetObserver(caffe2::make_unique<TimeObserver<OperatorBase>>(op, prof_));
   }
   const auto p = *this->prof_;
@@ -85,17 +97,20 @@ bool TimeObserver<NetBase>::Start() {
 }
 
 template <>
-bool TimeObserver<NetBase>::Stop() {
+bool TimeObserver<NetBase>::Stop()
+{
   const auto p = *this->prof_;
   p->end();
   return true;
 }
 
 template <>
-bool TimeObserver<OperatorBase>::Start() {
+bool TimeObserver<OperatorBase>::Start()
+{
   const auto &op = this->subject();
   std::string name{""}, metadata{""};
-  if (op->has_debug_def()) {
+  if (op->has_debug_def())
+  {
     const auto &opdef = op->debug_def();
     name = opdef.type();
     metadata = opdef.name();
@@ -105,25 +120,41 @@ bool TimeObserver<OperatorBase>::Start() {
 }
 
 template <>
-bool TimeObserver<OperatorBase>::Stop() {
+bool TimeObserver<OperatorBase>::Stop()
+{
   this->entry_->end();
   const auto p = *this->prof_;
   p->add(this->entry_);
   return true;
 }
 
-PredictorContext New(char *predict_net_file, char *init_net_file) {
-  try {
+static void SetCUDA()
+{
+  // cudaSetDevice(0);
+  DeviceOption option;
+  option.set_device_type(1);
+  option.set_cuda_gpu_id(0);
+  auto ctx = new CUDAContext(option);
+  // ctx->SwitchToDevice(0);
+}
+
+PredictorContext New(char *predict_net_file, char *init_net_file)
+{
+  try
+  {
+    SetCUDA();
     NetDef init_net, predict_net;
-    Workspace ws;
     CAFFE_ENFORCE(ReadProtoFromFile(init_net_file, &init_net));
     CAFFE_ENFORCE(ReadProtoFromFile(predict_net_file, &predict_net));
-    // init_net.mutable_device_option()->set_device_type(CUDA);
-    // predict_net.mutable_device_option()->set_device_type(CUDA);
-    const auto ctx = new Predictor(init_net, predict_net, &ws);
+    init_net.mutable_device_option()->set_device_type(CUDA);
+    predict_net.mutable_device_option()->set_device_type(CUDA);
+    Workspace ws;
+    const auto ctx = new Predictor<CUDAContext>(init_net, predict_net, &ws);
     auto p = new PredictorObject(ctx);
     return (PredictorContext)p;
-  } catch (const std::invalid_argument &ex) {
+  }
+  catch (const std::invalid_argument &ex)
+  {
     LOG(ERROR) << "exception: " << ex.what();
     errno = EINVAL;
     return nullptr;
@@ -131,7 +162,8 @@ PredictorContext New(char *predict_net_file, char *init_net_file) {
 }
 
 const char *Predict(PredictorContext pred0, float *imageData, const int batch,
-                    const int channels, const int width, const int height) {
+                    const int channels, const int width, const int height)
+{
   auto obj = (PredictorObject *)pred0;
 
   const auto image_size = batch * channels * width * height;
@@ -140,22 +172,25 @@ const char *Predict(PredictorContext pred0, float *imageData, const int batch,
   std::copy(imageData, imageData + image_size, data.begin());
   std::vector<TIndex> dims({batch, channels, width, height});
 
-  TensorCPU input;
+  TensorCUDA input;
   input.Resize(dims);
   input.ShareExternalPointer(data.data());
 
-  Predictor::TensorVector inputVec{&input}, outputVec{};
+  Predictor<CUDAContext>::TensorDeviceVector inputVec{&input}, outputVec{};
   auto predictor = obj->context();
 
   auto ws = predictor->ws();
   auto net_def = predictor->def();
   auto net = ws->GetNet(net_def.name());
-  if (obj->profile_enabled_) {
+  if (obj->profile_enabled_)
+  {
     unique_ptr<TimeObserver<NetBase>> net_ob =
         make_unique<TimeObserver<NetBase>>(net, &obj->prof_, obj->profile_name_,
                                            obj->profile_metadata_);
     net->SetObserver(std::move(net_ob));
-  } else {
+  }
+  else
+  {
     net->RemoveObserver();
   }
 
@@ -166,14 +201,17 @@ const char *Predict(PredictorContext pred0, float *imageData, const int batch,
 
   std::vector<Prediction> predictions;
   predictions.reserve(output.size());
-  for (int cnt = 0; cnt < batch; cnt++) {
-    for (int idx = 0; idx < len; idx++) {
+  for (int cnt = 0; cnt < batch; cnt++)
+  {
+    for (int idx = 0; idx < len; idx++)
+    {
       predictions.emplace_back(std::make_pair(idx, probs[cnt * len + idx]));
     }
   }
 
   json preds = json::array();
-  for (const auto prediction : predictions) {
+  for (const auto prediction : predictions)
+  {
     preds.push_back(
         {{"index", prediction.first}, {"probability", prediction.second}});
   }
@@ -181,15 +219,18 @@ const char *Predict(PredictorContext pred0, float *imageData, const int batch,
   return res;
 }
 
-void Delete(PredictorContext pred) {
+void Delete(PredictorContext pred)
+{
   auto predictor = (PredictorObject *)pred;
-  if (predictor) {
+  if (predictor)
+  {
     delete_prof(&predictor->prof_);
     delete predictor;
   }
 }
 
-void Init() {
+void Init()
+{
   int dummy_argc = 1;
   const char *dummy_name = "go-caffe2";
   char **dummy_argv = const_cast<char **>(&dummy_name);
@@ -197,12 +238,15 @@ void Init() {
 }
 
 void StartProfiling(PredictorContext pred, const char *name,
-                    const char *metadata) {
+                    const char *metadata)
+{
   auto predictor = (PredictorObject *)pred;
-  if (name == nullptr) {
+  if (name == nullptr)
+  {
     name = "";
   }
-  if (metadata == nullptr) {
+  if (metadata == nullptr)
+  {
     metadata = "";
   }
   predictor->profile_enabled_ = true;
@@ -210,21 +254,25 @@ void StartProfiling(PredictorContext pred, const char *name,
   predictor->profile_metadata_ = std::string(metadata);
 }
 
-void EndProfiling(PredictorContext pred) {
+void EndProfiling(PredictorContext pred)
+{
   auto predictor = (PredictorObject *)pred;
-  if (predictor->prof_) {
+  if (predictor->prof_)
+  {
     predictor->prof_->end();
   }
 }
 
-void DisableProfiling(PredictorContext pred) {
+void DisableProfiling(PredictorContext pred)
+{
   auto predictor = (PredictorObject *)pred;
   delete_prof(&predictor->prof_);
   predictor->profile_name_ = std::string("");
   predictor->profile_metadata_ = std::string("");
 }
 
-char *ReadProfile(PredictorContext pred) {
+char *ReadProfile(PredictorContext pred)
+{
   auto predictor = (PredictorObject *)pred;
   const auto s = predictor->prof_->read();
   const auto cstr = s.c_str();

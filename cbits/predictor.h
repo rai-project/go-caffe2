@@ -20,9 +20,13 @@
 #include "caffe2/core/tensor.h"
 
 namespace caffe2 {
+template <typename TargetDev>
 class Predictor {
  public:
-  using TensorVector = std::vector<TensorCPU*>;
+  using TargetDevice = TargetDev;
+  using TensorDevice = Tensor<TargetDevice>;
+  using TensorDeviceVector = std::vector<TensorDevice*>;
+  // using TensorVector = std::vector<TensorCPU*>;
   // Runs the `init_net` once, then saves the `run_net` to be executed
   // in `::run`
   Predictor(const NetDef& init_net, const NetDef& run_net,
@@ -45,7 +49,7 @@ class Predictor {
   //   outputs->size() == run_net.external_inputs.size()
 
   // Returns true on success
-  bool run(const TensorVector& inputs, TensorVector* outputs) {
+  bool run(const TensorDeviceVector& inputs, TensorDeviceVector* outputs) {
     CAFFE_ENFORCE(inputs.size() <= run_net_.external_input_size());
     for (auto i = 0; i < inputs.size(); ++i) {
       shareInputTensor(&ws_, run_net_.external_input(i), inputs[i]);
@@ -73,25 +77,25 @@ class Predictor {
   void enforceIsTensor(Workspace* ws, const std::string& name) {
     auto blob = ws->GetBlob(name);
     CAFFE_ENFORCE(blob, "Blob does not exist: ", name);
-    CAFFE_ENFORCE(blob->template IsType<TensorCPU>(),
+    CAFFE_ENFORCE(blob->template IsType<TensorDevice>(),
                   "Blob is not a CPU Tensor: ", name);
   }
 
   void shareInputTensor(Workspace* ws, const std::string& name,
-                        TensorCPU* input) {
+                        TensorDevice* input) {
     enforceIsTensor(ws, name);
     auto* blob = ws->GetBlob(name);
     CAFFE_ENFORCE(blob, "Blob: ", name, " does not exist");
-    auto* tensor = blob->template GetMutable<TensorCPU>();
+    auto* tensor = blob->template GetMutable<TensorDevice>();
     tensor->ResizeLike(*input);
     tensor->ShareData(*input);
   }
 
-  TensorCPU* extractOutputTensor(Workspace* ws, const std::string& name) {
+  TensorDevice* extractOutputTensor(Workspace* ws, const std::string& name) {
     enforceIsTensor(ws, name);
     auto* blob = ws->GetBlob(name);
     CAFFE_ENFORCE(blob, "Blob: ", name, " does not exist");
-    return blob->template GetMutable<TensorCPU>();
+    return blob->template GetMutable<TensorDevice>();
   }
 };
 }
