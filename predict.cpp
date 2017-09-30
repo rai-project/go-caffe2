@@ -5,16 +5,15 @@
 #include <utility>
 #include <vector>
 
-#include <caffe2/core/init.h>
-#include <caffe2/core/predictor.h>
-
 #include <caffe2/core/common.h>
+#include <caffe2/core/init.h>
 #include <caffe2/core/observer.h>
 #include <caffe2/core/operator.h>
 #include <caffe2/utils/proto_utils.h>
 
 #include "json.hpp"
 #include "predict.hpp"
+#include "predictor.h"
 #include "timer.h"
 #include "timer.impl.hpp"
 
@@ -26,11 +25,11 @@ using json = nlohmann::json;
 using Prediction = std::pair<int, float>;
 
 struct PredictorObject {
-  PredictorObject(caffe2::Predictor *const ctx) : ctx_(ctx){};
+  PredictorObject(Predictor *const ctx) : ctx_(ctx){};
 
-  caffe2::Predictor *const &context() { return ctx_; }
+  Predictor *const &context() { return ctx_; }
 
-  caffe2::Predictor *const ctx_;
+  Predictor *const ctx_;
   bool profile_enabled_{false};
   std::string profile_name_{""}, profile_metadata_{""};
   profile *prof_{nullptr};
@@ -116,11 +115,12 @@ bool TimeObserver<OperatorBase>::Stop() {
 PredictorContext New(char *predict_net_file, char *init_net_file) {
   try {
     NetDef init_net, predict_net;
+    Workspace ws;
     CAFFE_ENFORCE(ReadProtoFromFile(init_net_file, &init_net));
     CAFFE_ENFORCE(ReadProtoFromFile(predict_net_file, &predict_net));
     // init_net.mutable_device_option()->set_device_type(CUDA);
     // predict_net.mutable_device_option()->set_device_type(CUDA);
-    const auto ctx = new Predictor(init_net, predict_net);
+    const auto ctx = new Predictor(init_net, predict_net, &ws);
     auto p = new PredictorObject(ctx);
     return (PredictorContext)p;
   } catch (const std::invalid_argument &ex) {
