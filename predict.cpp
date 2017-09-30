@@ -129,10 +129,7 @@ bool SetCUDA() {
 }
 
 PredictorContext New(char *predict_net_file, char *init_net_file) {
-  try {
-    SetCUDA();
-  } catch (...) {
-  }
+  
   try {
     NetDef init_net, predict_net;
     CAFFE_ENFORCE(ReadProtoFromFile(init_net_file, &init_net));
@@ -213,6 +210,7 @@ void Init() {
   std::cout << "calling init...."
             << "\n";
   GlobalInit(&dummy_argc, &dummy_argv);
+  SetCUDA();
 }
 
 void StartProfiling(PredictorContext pred, const char *name,
