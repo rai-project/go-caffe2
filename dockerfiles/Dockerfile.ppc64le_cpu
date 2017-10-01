@@ -61,6 +61,8 @@ RUN cd $CAFFE2_SRC_DIR && \
 
 RUN cd $CAFFE2_SRC_DIR && mkdir build && cd build \
     && cmake .. \
+       -DUSE_OBSERVERS=ON \
+      -DBLAS=OpenBLAS \
       -DUSE_CUDA=OFF \
       -DUSE_NNPACK=OFF \
       -DUSE_ROCKSDB=OFF \

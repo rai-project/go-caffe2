@@ -59,16 +59,27 @@ RUN cd $CAFFE2_SRC_DIR && \
     git checkout master && \
     git pull
 
-RUN cd $CAFFE2_SRC_DIR && mkdir build && cd build \
-    && cmake .. \
-      -DCUDA_ARCH_NAME=Manual \
-      -DCUDA_ARCH_BIN="35 52 60 61" \
-      -DCUDA_ARCH_PTX="61" \
-      -DUSE_NNPACK=OFF \
-      -DUSE_ROCKSDB=OFF \
-      -DUSE_OPENCV=OFF \
-      -DBUILD_PYTHON=OFF \
-    && make install \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libnccl-dev libnccl1 && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN cd $CAFFE2_SRC_DIR && mkdir build && cd build && \
+	cmake .. \
+		-DCMAKE_INSTALL_PREFIX=$DIST_DIR \
+		-DUSE_CUDA=1 \
+		-DUSE_NCCL=1 \
+		-DNCCL_ROOT=/opt/DL/nccl \
+		-DUSE_OBSERVERS=ON \
+		-DBLAS=OpenBLAS \
+		-DBUILD_SHARED_LIBS=1 \
+		-DCUDA_ARCH_NAME=Manual \
+		-DCUDA_ARCH_BIN="35 52 60 61" \
+		-DCUDA_ARCH_PTX="61" \
+		-DUSE_NNPACK=OFF \
+		-DUSE_ROCKSDB=OFF \
+		-DUSE_OPENCV=OFF \
+		-DBUILD_PYTHON=OFF \
+	&& make -j"$(nproc)" install \
     && ldconfig \
     && make clean \
     && cd .. \
