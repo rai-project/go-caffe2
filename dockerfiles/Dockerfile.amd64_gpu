@@ -59,7 +59,6 @@ RUN cd $CAFFE2_SRC_DIR && \
     git checkout master && \
     git pull
 
-
 RUN cd $CAFFE2_SRC_DIR && mkdir build && cd build && \
 	cmake .. \
 		-DCMAKE_INSTALL_PREFIX=$DIST_DIR \
