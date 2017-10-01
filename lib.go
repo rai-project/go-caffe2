@@ -1,7 +1,7 @@
 package caffe2
 
 // #cgo LDFLAGS: -lstdc++ -lglog -lboost_system -lCaffe2_CPU
-// #cgo CXXFLAGS:  -std=c++11 -I${SRCDIR}/cbits -O0 -Wall -g
+// #cgo CXXFLAGS:  -std=c++11 -I${SRCDIR}/cbits -Wall -g
 // #cgo CXXFLAGS: -Wno-sign-compare -Wno-unused-function -I/usr/include/eigen3/ -I/usr/local/include/eigen3/
 // #cgo darwin CXXFLAGS: -I/opt/caffe2/include  -I/usr/local/include/eigen3/
 // #cgo darwin LDFLAGS: -L/opt/caffe2/lib
