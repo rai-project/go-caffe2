@@ -90,7 +90,7 @@ func main() {
 	}
 
 	// create predictor
-	predictor, err := caffe2.New(graph, weights)
+	predictor, err := caffe2.New(graph, weights, caffe2.CPUDevice)
 	if err != nil {
 		panic(err)
 	}
