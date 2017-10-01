@@ -27,7 +27,8 @@ class Predictor {
   using TargetDevice = TargetDev;
   using TensorDevice = Tensor<TargetDevice>;
   using TensorDeviceVector = std::vector<TensorDevice*>;
-  using TensorCPUVector = std::vector<TensorCPU>;
+  using TensorCPUVector = std::vector<TensorCPU*>;
+  using TensorOutputVector = std::vector<TensorCPU>;
   // using TensorVector = std::vector<TensorCPU*>;
   // Runs the `init_net` once, then saves the `run_net` to be executed
   // in `::run`
@@ -60,7 +61,7 @@ class Predictor {
   //   outputs->size() == run_net.external_inputs.size()
 
   // Returns true on success
-  bool run(const TensorCPUVector& inputs, TensorCPUVector* outputs) {
+  bool run(const TensorCPUVector& inputs, TensorOutputVector* outputs) {
     CAFFE_ENFORCE(inputs.size() <= input_names_.size());
 
     for (auto ii = 0; ii < inputs.size(); ii++) {
@@ -73,7 +74,9 @@ class Predictor {
 
     outputs->resize(output_names_.size());
     for (auto ii = 0; ii < outputs->size(); ii++) {
-      (*outputs)[ii] = extractOutputTensor(&ws_, output_names_[ii]);
+      const auto t = extractOutputTensor(&ws_, output_names_[ii]);
+      (*outputs)[ii].ResizeLike(t);
+      (*outputs)[ii].ShareData(t);
     }
     return true;
   }
@@ -96,21 +99,21 @@ class Predictor {
   }
 
   void shareInputTensor(Workspace* ws, const std::string& name,
-                        TensorCPU& input) {
+                        TensorCPU *input) {
     enforceIsTensor(ws, name);
     auto* blob = ws->GetBlob(name);
     CAFFE_ENFORCE(blob, "Blob: ", name, " does not exist");
     auto* tensor = blob->template GetMutable<TensorDevice>();
-    tensor->ResizeLike(input);
-    tensor->ShareData(input);
+    tensor->ResizeLike(*input);
+    tensor->ShareData(*input);
   }
 
-  TensorCPU extractOutputTensor(Workspace* ws, const std::string& name) {
+  TensorCPU  extractOutputTensor(Workspace* ws, const std::string& name) {
     enforceIsTensor(ws, name);
     auto* blob = ws->GetBlob(name);
     CAFFE_ENFORCE(blob, "Blob: ", name, " does not exist");
-    if (blob_.IsType<TensorCUDA>()) {
-      return TensorCPU(blob->template Get<TensorDevice>());
+    if (blob->IsType<TensorCUDA>()) {
+      return blob->Get<TensorCUDA>();
     }
     return blob->Get<TensorCPU>();
   }

@@ -121,7 +121,6 @@ bool SetCUDA() {
   option.set_device_type(CUDA);
 #ifdef WITH_CUDA
   new CUDAContext(option);
-  std::cout << std::endl << "using CUDA" << std::endl;
   return true;
 #else
   return false;
@@ -158,7 +157,8 @@ const char *Predict(PredictorContext pred0, float *imageData, const int batch,
   input.Resize(dims);
   input.ShareExternalPointer(data.data());
 
-  carml::Predictor<CUDAContext>::TensorCPUVector inputVec{input}, outputVec{};
+  carml::Predictor<CUDAContext>::TensorCPUVector inputVec{&input};
+carml::Predictor<CUDAContext>::TensorOutputVector outputVec{};
   auto predictor = obj->context();
 
   auto net = predictor->net();
@@ -173,11 +173,11 @@ const char *Predict(PredictorContext pred0, float *imageData, const int batch,
 
   predictor->run(inputVec, &outputVec);
   auto output = outputVec[0];
-  auto len = output->size() / batch;
-  auto probs = output->mutable_data<float>();
+  auto len = output.size() / batch;
+  auto probs = output.mutable_data<float>();
 
   std::vector<Prediction> predictions;
-  predictions.reserve(output->size());
+  predictions.reserve(output.size());
   for (int cnt = 0; cnt < batch; cnt++) {
     for (int idx = 0; idx < len; idx++) {
       predictions.emplace_back(std::make_pair(idx, probs[cnt * len + idx]));
