@@ -24,6 +24,9 @@ cd $CAFFE2_SRC_DIR && mkdir build && cd build && \
 		-DCMAKE_INSTALL_PREFIX=$DIST_DIR \
 		-DUSE_CUDA=1 \
 		-DUSE_NCCL=1 \
+		-DNCCL_ROOT=/opt/DL/nccl \
+		-DUSE_OBSERVERS=ON \
+		-DBLAS=OpenBLAS \
 		-DBUILD_SHARED_LIBS=1 \
 		-DCUDA_ARCH_NAME=Manual \
 		-DCUDA_ARCH_BIN="35 52 60 61" \
