@@ -7,36 +7,52 @@ import "C"
 import (
 	"encoding/json"
 	"fmt"
-	"sync"
 	"unsafe"
+
+	"github.com/rai-project/config"
+	"github.com/rai-project/nvidia-smi"
 
 	"github.com/Unknwon/com"
 	"github.com/pkg/errors"
 )
 
+type Device int
+
+const (
+	CPUDevice  Device = Device(C.CPU_DEVICE_KIND)
+	CUDADevice        = Device(C.CUDA_DEVICE_KIND)
+)
+
 type Predictor struct {
-	ctx C.PredictorContext
+	device C.DeviceKind
+	ctx    C.PredictorContext
 }
 
-func initialize() {
-	C.Init()
+func init() {
+	config.AfterInit(func() {
+		var device C.DeviceKind = C.CPU_DEVICE_KIND
+		nvidiasmi.Wait()
+		if nvidiasmi.HasGPU {
+			device = C.CUDA_DEVICE_KIND
+		}
+		C.Init(device)
+	})
 }
 
-func New(initNetFile, predictNetFile string) (*Predictor, error) {
-	var once sync.Once
-	once.Do(initialize)
+func New(initNetFile, predictNetFile string, device Device) (*Predictor, error) {
 	if !com.IsFile(initNetFile) {
 		return nil, errors.Errorf("file %s not found", initNetFile)
 	}
 	if !com.IsFile(predictNetFile) {
 		return nil, errors.Errorf("file %s not found", predictNetFile)
 	}
-	ctx := C.New(C.CString(initNetFile), C.CString(predictNetFile))
+	ctx := C.New(C.CString(initNetFile), C.CString(predictNetFile), C.DeviceKind(device))
 	if ctx == nil {
 		return nil, errors.New("unable to create caffe2 predictor context")
 	}
 	return &Predictor{
-		ctx: ctx,
+		device: C.DeviceKind(device),
+		ctx:    ctx,
 	}, nil
 }
 
@@ -45,22 +61,22 @@ func (p *Predictor) StartProfiling(name, metadata string) error {
 	cmetadata := C.CString(metadata)
 	defer C.free(unsafe.Pointer(cname))
 	defer C.free(unsafe.Pointer(cmetadata))
-	C.StartProfiling(p.ctx, cname, cmetadata)
+	C.StartProfiling(p.ctx, cname, cmetadata, p.device)
 	return nil
 }
 
 func (p *Predictor) EndProfiling() error {
-	C.EndProfiling(p.ctx)
+	C.EndProfiling(p.ctx, p.device)
 	return nil
 }
 
 func (p *Predictor) DisableProfiling() error {
-	C.DisableProfiling(p.ctx)
+	C.DisableProfiling(p.ctx, p.device)
 	return nil
 }
 
 func (p *Predictor) ReadProfile() (string, error) {
-	cstr := C.ReadProfile(p.ctx)
+	cstr := C.ReadProfile(p.ctx, p.device)
 	if cstr == nil {
 		return "", errors.New("failed to read nil profile")
 	}
@@ -84,7 +100,7 @@ func (p *Predictor) Predict(data []float32, batchSize int, channels int,
 	}
 
 	ptr := (*C.float)(unsafe.Pointer(&data[0]))
-	r := C.Predict(p.ctx, ptr, C.int(batchSize), C.int(channels), C.int(width), C.int(height))
+	r := C.Predict(p.ctx, ptr, C.int(batchSize), C.int(channels), C.int(width), C.int(height), p.device)
 	defer C.free(unsafe.Pointer(r))
 	js := C.GoString(r)
 
@@ -97,5 +113,5 @@ func (p *Predictor) Predict(data []float32, batchSize int, channels int,
 }
 
 func (p *Predictor) Close() {
-	C.Delete(p.ctx)
+	C.Delete(p.ctx, p.device)
 }

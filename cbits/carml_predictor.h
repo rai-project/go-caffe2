@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <type_traits>
+
 #include "caffe2/core/net.h"
 #include "caffe2/core/tensor.h"
 
@@ -33,8 +35,12 @@ class Predictor {
   // Runs the `init_net` once, then saves the `run_net` to be executed
   // in `::run`
   Predictor(NetDef& init_net, NetDef& run_net) {
-    init_net.mutable_device_option()->set_device_type(CUDA);
-    run_net.mutable_device_option()->set_device_type(CUDA);
+#ifdef WITH_CUDA
+    if (std::is_same<TargetDevice, CUDAContext>::value) {
+      init_net.mutable_device_option()->set_device_type(CUDA);
+      run_net.mutable_device_option()->set_device_type(CUDA);
+    }
+#endif  // WITH_CUDA
 
     auto init_net_ = CreateNet(init_net, &ws_);
     run_net_ = CreateNet(run_net, &ws_);
@@ -99,7 +105,7 @@ class Predictor {
   }
 
   void shareInputTensor(Workspace* ws, const std::string& name,
-                        TensorCPU *input) {
+                        TensorCPU* input) {
     enforceIsTensor(ws, name);
     auto* blob = ws->GetBlob(name);
     CAFFE_ENFORCE(blob, "Blob: ", name, " does not exist");
@@ -108,12 +114,16 @@ class Predictor {
     tensor->ShareData(*input);
   }
 
-  TensorCPU  extractOutputTensor(Workspace* ws, const std::string& name) {
+  TensorCPU extractOutputTensor(Workspace* ws, const std::string& name) {
     enforceIsTensor(ws, name);
     auto* blob = ws->GetBlob(name);
     CAFFE_ENFORCE(blob, "Blob: ", name, " does not exist");
     if (blob->IsType<TensorCUDA>()) {
+#ifdef WITH_CUDA
       return blob->Get<TensorCUDA>();
+#else   // WITH_CUDA
+      return nullptr;
+#endif  // WITH_CUDA
     }
     return blob->Get<TensorCPU>();
   }

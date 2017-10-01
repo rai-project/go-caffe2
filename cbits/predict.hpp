@@ -9,22 +9,28 @@ extern "C" {
 
 typedef void *PredictorContext;
 
-PredictorContext New(char *predict_net_file, char *init_net_file);
+typedef enum { CPU_DEVICE_KIND = 0, CUDA_DEVICE_KIND = 1 } DeviceKind;
+
+PredictorContext New(char *predict_net_file, char *init_net_file,
+                     DeviceKind device);
 
 const char *Predict(PredictorContext pred, float *imageData, const int batch,
-                    const int channels, const int width, const int height);
-void Delete(PredictorContext pred);
+                    const int channels, const int width, const int height,
+                    DeviceKind device);
+void Delete(PredictorContext pred, DeviceKind device);
 
-void Init();
+int Init(DeviceKind device);
+
+int InitCUDA();
 
 void StartProfiling(PredictorContext pred, const char *name,
-                    const char *metadata);
+                    const char *metadata, DeviceKind device);
 
-void EndProfiling(PredictorContext pred);
+void EndProfiling(PredictorContext pred, DeviceKind device);
 
-void DisableProfiling(PredictorContext pred);
+void DisableProfiling(PredictorContext pred, DeviceKind device);
 
-char *ReadProfile(PredictorContext pred);
+char *ReadProfile(PredictorContext pred, DeviceKind device);
 
 #ifdef __cplusplus
 }
