@@ -36,7 +36,7 @@ func init() {
 		if nvidiasmi.HasGPU {
 			device = C.CUDA_DEVICE_KIND
 		}
-		C.Init(device)
+		C.InitCaffe2(device)
 	})
 }
 
@@ -54,7 +54,7 @@ func New(opts ...options.Option) (*Predictor, error) {
 	if options.UsesGPU() {
 		device = C.DeviceKind(CUDADevice)
 	}
-	ctx := C.New(C.CString(initNetFile), C.CString(predictNetFile), device)
+	ctx := C.NewCaffe2(C.CString(initNetFile), C.CString(predictNetFile), device)
 	if ctx == nil {
 		return nil, errors.New("unable to create caffe2 predictor context")
 	}
@@ -69,22 +69,22 @@ func (p *Predictor) StartProfiling(name, metadata string) error {
 	cmetadata := C.CString(metadata)
 	defer C.free(unsafe.Pointer(cname))
 	defer C.free(unsafe.Pointer(cmetadata))
-	C.StartProfiling(p.ctx, cname, cmetadata, p.device)
+	C.StartProfilingCaffe2(p.ctx, cname, cmetadata, p.device)
 	return nil
 }
 
 func (p *Predictor) EndProfiling() error {
-	C.EndProfiling(p.ctx, p.device)
+	C.EndProfilingCaffe2(p.ctx, p.device)
 	return nil
 }
 
 func (p *Predictor) DisableProfiling() error {
-	C.DisableProfiling(p.ctx, p.device)
+	C.DisableProfilingCaffe2(p.ctx, p.device)
 	return nil
 }
 
 func (p *Predictor) ReadProfile() (string, error) {
-	cstr := C.ReadProfile(p.ctx, p.device)
+	cstr := C.ReadProfileCaffe2(p.ctx, p.device)
 	if cstr == nil {
 		return "", errors.New("failed to read nil profile")
 	}
@@ -108,7 +108,7 @@ func (p *Predictor) Predict(data []float32, batchSize int, channels int,
 	}
 
 	ptr := (*C.float)(unsafe.Pointer(&data[0]))
-	r := C.Predict(p.ctx, ptr, C.int(batchSize), C.int(channels), C.int(width), C.int(height), p.device)
+	r := C.PredictCaffe2(p.ctx, ptr, C.int(batchSize), C.int(channels), C.int(width), C.int(height), p.device)
 	defer C.free(unsafe.Pointer(r))
 	js := C.GoString(r)
 
@@ -121,5 +121,5 @@ func (p *Predictor) Predict(data []float32, batchSize int, channels int,
 }
 
 func (p *Predictor) Close() {
-	C.Delete(p.ctx, p.device)
+	C.DeleteCaffe2(p.ctx, p.device)
 }

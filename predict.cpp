@@ -120,7 +120,7 @@ bool TimeObserver<OperatorBase>::Stop() {
 }
 
 template <typename Context>
-PredictorContext newImpl(char *predict_net_file, char *init_net_file) {
+static PredictorContext newImpl(char *predict_net_file, char *init_net_file) {
   try {
     NetDef init_net, predict_net;
     CAFFE_ENFORCE(ReadProtoFromFile(init_net_file, &init_net));
@@ -140,7 +140,7 @@ PredictorContext newImpl(char *predict_net_file, char *init_net_file) {
   }
 }
 
-PredictorContext New(char *predict_net_file, char *init_net_file,
+PredictorContext NewCaffe2(char *predict_net_file, char *init_net_file,
                      DeviceKind device_kind) {
   if (device_kind == CPU_DEVICE_KIND) {
     return newImpl<CPUContext>(predict_net_file, init_net_file);
@@ -154,7 +154,7 @@ PredictorContext New(char *predict_net_file, char *init_net_file,
 }
 
 template <typename Context>
-const char *predictImpl(PredictorObject<Context> *obj, float *imageData,
+static const char *predictImpl(PredictorObject<Context> *obj, float *imageData,
                         const int batch, const int channels, const int width,
                         const int height) {
   const auto image_size = batch * channels * width * height;
@@ -207,7 +207,7 @@ const char *predictImpl(PredictorObject<Context> *obj, float *imageData,
   return res;
 }
 
-const char *Predict(PredictorContext pred, float *imageData, const int batch,
+const char *PredictCaffe2(PredictorContext pred, float *imageData, const int batch,
                     const int channels, const int width, const int height,
                     DeviceKind device_kind) {
   if (device_kind == CPU_DEVICE_KIND) {
@@ -224,13 +224,13 @@ const char *Predict(PredictorContext pred, float *imageData, const int batch,
 }
 
 template <typename Context>
-void deleteImpl(PredictorObject<Context> *predictor) {
+static void deleteImpl(PredictorObject<Context> *predictor) {
   if (predictor) {
     delete_prof(&predictor->prof_);
     delete predictor;
   }
 }
-void Delete(PredictorContext pred, DeviceKind device_kind) {
+void DeleteCaffe2(PredictorContext pred, DeviceKind device_kind) {
   if (device_kind == CPU_DEVICE_KIND) {
     return deleteImpl<CPUContext>((PredictorObject<CPUContext> *)pred);
   }
@@ -242,7 +242,7 @@ void Delete(PredictorContext pred, DeviceKind device_kind) {
 #endif
 }
 
-int InitCUDA() {
+int InitCUDACaffe2() {
 #ifdef WITH_CUDA
   static bool initialized_cuda = false;
   if (initialized_cuda) {
@@ -258,7 +258,7 @@ int InitCUDA() {
 #endif
 }
 
-int Init(DeviceKind device_kind) {
+int InitCaffe2(DeviceKind device_kind) {
   static bool initialized_caffe = false;
   if (initialized_caffe) {
     return true;
@@ -269,13 +269,13 @@ int Init(DeviceKind device_kind) {
   char **dummy_argv = const_cast<char **>(&dummy_name);
   GlobalInit(&dummy_argc, &dummy_argv);
   if (device_kind == CUDA_DEVICE_KIND) {
-    return InitCUDA();
+    return InitCUDACaffe2();
   }
   return false;
 }
 
 template <typename Context>
-void startProfilingImpl(PredictorObject<Context> *predictor, const char *name,
+static void startProfilingImpl(PredictorObject<Context> *predictor, const char *name,
                         const char *metadata) {
   if (name == nullptr) {
     name = "";
@@ -287,7 +287,7 @@ void startProfilingImpl(PredictorObject<Context> *predictor, const char *name,
   predictor->profile_name_ = std::string(name);
   predictor->profile_metadata_ = std::string(metadata);
 }
-void StartProfiling(PredictorContext pred, const char *name,
+void StartProfilingCaffe2(PredictorContext pred, const char *name,
                     const char *metadata, DeviceKind device_kind) {
   if (device_kind == CPU_DEVICE_KIND) {
     return startProfilingImpl<CPUContext>((PredictorObject<CPUContext> *)pred,
@@ -303,13 +303,13 @@ void StartProfiling(PredictorContext pred, const char *name,
 }
 
 template <typename Context>
-void endProfilingImpl(PredictorObject<Context> *predictor) {
+static void endProfilingImpl(PredictorObject<Context> *predictor) {
   if (predictor && predictor->prof_) {
     predictor->prof_->end();
   }
 }
 
-void EndProfiling(PredictorContext pred, DeviceKind device_kind) {
+void EndProfilingCaffe2(PredictorContext pred, DeviceKind device_kind) {
   if (device_kind == CPU_DEVICE_KIND) {
     return endProfilingImpl<CPUContext>((PredictorObject<CPUContext> *)pred);
   }
@@ -322,7 +322,7 @@ void EndProfiling(PredictorContext pred, DeviceKind device_kind) {
 }
 
 template <typename Context>
-void disableProfilingImpl(PredictorObject<Context> *predictor) {
+static void disableProfilingImpl(PredictorObject<Context> *predictor) {
   if (!predictor || !predictor->prof_) {
     return;
   }
@@ -331,7 +331,7 @@ void disableProfilingImpl(PredictorObject<Context> *predictor) {
   predictor->profile_metadata_ = std::string("");
 }
 
-void DisableProfiling(PredictorContext pred, DeviceKind device_kind) {
+void DisableProfilingCaffe2(PredictorContext pred, DeviceKind device_kind) {
   if (device_kind == CPU_DEVICE_KIND) {
     return disableProfilingImpl<CPUContext>(
         (PredictorObject<CPUContext> *)pred);
@@ -346,7 +346,7 @@ void DisableProfiling(PredictorContext pred, DeviceKind device_kind) {
 }
 
 template <typename Context>
-char *readProfileImpl(PredictorObject<Context> *predictor) {
+static char *readProfileImpl(PredictorObject<Context> *predictor) {
   if (!predictor || !predictor->prof_) {
     return NULL;
   }
@@ -355,7 +355,7 @@ char *readProfileImpl(PredictorObject<Context> *predictor) {
   return strdup(cstr);
 }
 
-char *ReadProfile(PredictorContext pred, DeviceKind device_kind) {
+char *ReadProfileCaffe2(PredictorContext pred, DeviceKind device_kind) {
   if (device_kind == CPU_DEVICE_KIND) {
     return readProfileImpl<CPUContext>((PredictorObject<CPUContext> *)pred);
   }
