@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	"github.com/rai-project/config"
+	"github.com/rai-project/dlframework/framework/options"
 	"github.com/rai-project/nvidia-smi"
 
 	"github.com/Unknwon/com"
@@ -39,10 +40,13 @@ func init() {
 	})
 }
 
-func New(initNetFile, predictNetFile string, device Device) (*Predictor, error) {
-	if !com.IsFile(initNetFile) {
+func New(opts ...options.Option) (*Predictor, error) {
+	options := options.New(opts...)
+	initNetFile := string(options.Symbol())
+	if !com.IsFile(modelFile) {
 		return nil, errors.Errorf("file %s not found", initNetFile)
 	}
+	predictNetFile := string(options.Weights())
 	if !com.IsFile(predictNetFile) {
 		return nil, errors.Errorf("file %s not found", predictNetFile)
 	}
@@ -50,8 +54,12 @@ func New(initNetFile, predictNetFile string, device Device) (*Predictor, error) 
 	if ctx == nil {
 		return nil, errors.New("unable to create caffe2 predictor context")
 	}
+	device := C.DeviceKind(CPUDevice)
+	if options.UseGPU {
+		device = C.DeviceKind(CUDADevice)
+	}
 	return &Predictor{
-		device: C.DeviceKind(device),
+		device: device,
 		ctx:    ctx,
 	}, nil
 }
