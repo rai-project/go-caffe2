@@ -268,10 +268,7 @@ int InitCaffe2(DeviceKind device_kind) {
   const char *dummy_name = "go-caffe2";
   char **dummy_argv = const_cast<char **>(&dummy_name);
   GlobalInit(&dummy_argc, &dummy_argv);
-  if (device_kind == CUDA_DEVICE_KIND) {
     return InitCUDACaffe2();
-  }
-  return false;
 }
 
 template <typename Context>

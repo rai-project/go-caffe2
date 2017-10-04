@@ -42,7 +42,7 @@ func init() {
 
 func New(opts ...options.Option) (*Predictor, error) {
 	options := options.New(opts...)
-	initNetFile := string(options.Symbol())
+	initNetFile := string(options.Graph())
 	if !com.IsFile(initNetFile) {
 		return nil, errors.Errorf("file %s not found", initNetFile)
 	}
