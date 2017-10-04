@@ -43,20 +43,20 @@ func init() {
 func New(opts ...options.Option) (*Predictor, error) {
 	options := options.New(opts...)
 	initNetFile := string(options.Symbol())
-	if !com.IsFile(modelFile) {
+	if !com.IsFile(initNetFile) {
 		return nil, errors.Errorf("file %s not found", initNetFile)
 	}
 	predictNetFile := string(options.Weights())
 	if !com.IsFile(predictNetFile) {
 		return nil, errors.Errorf("file %s not found", predictNetFile)
 	}
-	ctx := C.New(C.CString(initNetFile), C.CString(predictNetFile), C.DeviceKind(device))
+	device := C.DeviceKind(CPUDevice)
+	if options.UsesGPU() {
+		device = C.DeviceKind(CUDADevice)
+	}
+	ctx := C.New(C.CString(initNetFile), C.CString(predictNetFile), device)
 	if ctx == nil {
 		return nil, errors.New("unable to create caffe2 predictor context")
-	}
-	device := C.DeviceKind(CPUDevice)
-	if options.UseGPU {
-		device = C.DeviceKind(CUDADevice)
 	}
 	return &Predictor{
 		device: device,
