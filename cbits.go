@@ -52,6 +52,9 @@ func New(opts ...options.Option) (*Predictor, error) {
 	}
 	device := C.DeviceKind(CPUDevice)
 	if options.UsesGPU() {
+		if !nvidiasmi.HasGPU {
+			return nil, errors.New("no GPU device")
+		}
 		device = C.DeviceKind(CUDADevice)
 	}
 	ctx := C.NewCaffe2(C.CString(initNetFile), C.CString(predictNetFile), device)
