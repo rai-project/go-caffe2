@@ -232,11 +232,21 @@ static void deleteImpl(PredictorObject<Context> *predictor) {
     delete predictor;
   }
 }
+
+#ifdef WITH_CUDA
+static CUDAContext *cuda_ctx = nullptr;
+#endif  // WITH_CUDA
+
 void DeleteCaffe2(PredictorContext pred, DeviceKind device_kind) {
   if (device_kind == CPU_DEVICE_KIND) {
     deleteImpl<CPUContext>((PredictorObject<CPUContext> *)pred);
     return;
   }
+#ifdef WITH_CUDA
+  if (cuda_ctx != nullptr) {
+    delete cuda_ctx;
+  }
+#endif  // WITH_CUDA
 
 #ifdef WITH_CUDA
   deleteImpl<CUDAContext>((PredictorObject<CUDAContext> *)pred);
@@ -252,7 +262,7 @@ int InitCUDACaffe2() {
   initialized_cuda = true;
   DeviceOption option;
   option.set_device_type(CUDA);
-  new CUDAContext(option);
+  cuda_ctx = new CUDAContext(option);
   return true;
 #else
   return false;
