@@ -119,7 +119,10 @@ class Predictor {
     auto* blob = ws->GetBlob(name);
     CAFFE_ENFORCE(blob, "Blob: ", name, " does not exist");
 #ifdef WITH_CUDA
-    return blob->Get<TensorCUDA>();
+    if (blob->IsType<TensorCUDA>())
+      return blob->Get<TensorCUDA>();
+    else if (blob->IsType<TensorCPU>())
+      return blob->Get<TensorCPU>();
 #endif  // WITH_CUDA
     return blob->Get<TensorCPU>();
   }
