@@ -245,6 +245,7 @@ void DeleteCaffe2(PredictorContext pred, DeviceKind device_kind) {
 #ifdef WITH_CUDA
   if (cuda_ctx != nullptr) {
     delete cuda_ctx;
+    cuda_ctx = nullptr;
   }
 #endif  // WITH_CUDA
 
