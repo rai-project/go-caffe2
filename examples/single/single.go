@@ -18,8 +18,8 @@ import (
 )
 
 var (
-	graph_url    = "http://s3.amazonaws.com/store.carml.org/models/caffe2_0.8.1/squeezenet_1.0/predict_net.pb"
-	weights_url  = "http://s3.amazonaws.com/store.carml.org/models/caffe2_0.8.1/squeezenet_1.0/init_net.pb"
+	graph_url    = "http://s3.amazonaws.com/store.carml.org/models/caffe2/squeezenet_1.0/predict_net.pb"
+	weights_url  = "http://s3.amazonaws.com/store.carml.org/models/caffe2/squeezenet_1.0/init_net.pb"
 	features_url = "http://data.dmlc.ml/mxnet/models/imagenet/synset.txt"
 )
 
@@ -92,9 +92,9 @@ func main() {
 	predictor.StartProfiling("test", "net_metadata")
 	predictions, err := predictor.Predict(res, 1, 3, 227, 227)
 	predictor.EndProfiling()
-	profile, _ := predictor.ReadProfile()
+	// profile, _ := predictor.ReadProfile()
 	// out, _ := json.MarshalIndent(profile, "", "    ")
-	fmt.Println(profile)
+	// fmt.Println(profile)
 	predictor.DisableProfiling()
 
 	predictions.Sort()

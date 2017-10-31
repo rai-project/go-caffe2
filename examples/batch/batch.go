@@ -18,8 +18,8 @@ import (
 
 var (
 	batch        = 10
-	graph_url    = "http://s3.amazonaws.com/store.carml.org/models/caffe2_0.8.1/squeezenet_1.0/predict_net.pb"
-	weights_url  = "http://s3.amazonaws.com/store.carml.org/models/caffe2_0.8.1/squeezenet_1.0/init_net.pb"
+	graph_url    = "http://s3.amazonaws.com/store.carml.org/models/caffe2/squeezenet_1.0/predict_net.pb"
+	weights_url  = "http://s3.amazonaws.com/store.carml.org/models/caffe2/squeezenet_1.0/init_net.pb"
 	features_url = "http://data.dmlc.ml/mxnet/models/imagenet/synset.txt"
 )
 
