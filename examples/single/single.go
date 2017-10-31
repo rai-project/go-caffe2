@@ -12,6 +12,7 @@ import (
 	"github.com/anthonynsimon/bild/imgio"
 	"github.com/anthonynsimon/bild/transform"
 	"github.com/rai-project/config"
+	"github.com/rai-project/dlframework/framework/options"
 	"github.com/rai-project/downloadmanager"
 	"github.com/rai-project/go-caffe2"
 )
@@ -62,8 +63,14 @@ func main() {
 		os.Exit(-1)
 	}
 
+	opts := options.New()
+
 	// create predictor
-	predictor, err := caffe2.New(graph, weights, caffe2.CUDADevice)
+	predictor, err := caffe2.New(
+		options.WithOptions(opts),
+		options.Graph([]byte(graph)),
+		options.Weights([]byte(weights)))
+
 	if err != nil {
 		panic(err)
 	}

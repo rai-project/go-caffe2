@@ -11,6 +11,7 @@ import (
 	"github.com/anthonynsimon/bild/transform"
 	"github.com/k0kubun/pp"
 	"github.com/rai-project/config"
+	"github.com/rai-project/dlframework/framework/options"
 	"github.com/rai-project/downloadmanager"
 	caffe2 "github.com/rai-project/go-caffe2"
 )
@@ -89,8 +90,14 @@ func main() {
 		panic(err)
 	}
 
+	opts := options.New()
+
 	// create predictor
-	predictor, err := caffe2.New(graph, weights, caffe2.CPUDevice)
+	predictor, err := caffe2.New(
+		options.WithOptions(opts),
+		options.Graph([]byte(graph)),
+		options.Weights([]byte(weights)),
+		options.BatchSize(uint32(batch)))
 	if err != nil {
 		panic(err)
 	}
