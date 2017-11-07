@@ -50,6 +50,7 @@ func New(opts ...options.Option) (*Predictor, error) {
 	if !com.IsFile(predictNetFile) {
 		return nil, errors.Errorf("file %s not found", predictNetFile)
 	}
+
 	device := C.DeviceKind(CPUDevice)
 	if options.UsesGPU() {
 		if !nvidiasmi.HasGPU {
@@ -57,6 +58,7 @@ func New(opts ...options.Option) (*Predictor, error) {
 		}
 		device = C.DeviceKind(CUDADevice)
 	}
+
 	ctx := C.NewCaffe2(C.CString(initNetFile), C.CString(predictNetFile), device)
 	if ctx == nil {
 		return nil, errors.New("unable to create caffe2 predictor context")

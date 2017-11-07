@@ -15,6 +15,8 @@ import (
 	"github.com/rai-project/dlframework/framework/options"
 	"github.com/rai-project/downloadmanager"
 	"github.com/rai-project/go-caffe2"
+	nvidiasmi "github.com/rai-project/nvidia-smi"
+	_ "github.com/rai-project/tracer/all"
 )
 
 var (
@@ -59,15 +61,23 @@ func main() {
 	if _, err := downloadmanager.DownloadInto(weights_url, dir); err != nil {
 		os.Exit(-1)
 	}
+
 	if _, err := downloadmanager.DownloadInto(features_url, dir); err != nil {
 		os.Exit(-1)
 	}
 
 	opts := options.New()
 
+	device := options.CPU_DEVICE
+	if nvidiasmi.HasGPU {
+		device = options.CUDA_DEVICE
+	}
+	pp.Println("Using device = ", device)
+
 	// create predictor
 	predictor, err := caffe2.New(
 		options.WithOptions(opts),
+		options.Device(device, 0),
 		options.Graph([]byte(graph)),
 		options.Weights([]byte(weights)))
 
@@ -89,13 +99,12 @@ func main() {
 		panic(err)
 	}
 
-	predictor.StartProfiling("test", "net_metadata")
+	// predictor.StartProfiling("test", "net_metadata")
 	predictions, err := predictor.Predict(res, 1, 3, 227, 227)
-	predictor.EndProfiling()
+	// predictor.EndProfiling()
 	// profile, _ := predictor.ReadProfile()
-	// out, _ := json.MarshalIndent(profile, "", "    ")
 	// fmt.Println(profile)
-	predictor.DisableProfiling()
+	// predictor.DisableProfiling()
 
 	predictions.Sort()
 

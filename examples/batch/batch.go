@@ -14,6 +14,7 @@ import (
 	"github.com/rai-project/dlframework/framework/options"
 	"github.com/rai-project/downloadmanager"
 	caffe2 "github.com/rai-project/go-caffe2"
+	nvidiasmi "github.com/rai-project/nvidia-smi"
 )
 
 var (
@@ -59,6 +60,7 @@ func main() {
 	if _, err := downloadmanager.DownloadInto(weights_url, dir); err != nil {
 		os.Exit(-1)
 	}
+
 	if _, err := downloadmanager.DownloadInto(features_url, dir); err != nil {
 		os.Exit(-1)
 	}
@@ -92,9 +94,15 @@ func main() {
 
 	opts := options.New()
 
+	device := options.CPU_DEVICE
+	if nvidiasmi.HasGPU {
+		device = options.CUDA_DEVICE
+	}
+
 	// create predictor
 	predictor, err := caffe2.New(
 		options.WithOptions(opts),
+		options.Device(device, 0),
 		options.Graph([]byte(graph)),
 		options.Weights([]byte(weights)),
 		options.BatchSize(uint32(batch)))
