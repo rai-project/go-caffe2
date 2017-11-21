@@ -39,6 +39,10 @@ class Predictor {
     if (std::is_same<TargetDevice, CUDAContext>::value) {
       init_net.mutable_device_option()->set_device_type(CUDA);
       run_net.mutable_device_option()->set_device_type(CUDA);
+      for (int i = 0; i < run_net.op_size(); i++) {
+           caffe2::OperatorDef* op_def = run_net.mutable_op(i);
+          op_def->set_engine("CUDNN");
+      }
     }
 #endif  // WITH_CUDA
 

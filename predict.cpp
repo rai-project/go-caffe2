@@ -264,6 +264,7 @@ int InitCUDACaffe2() {
   DeviceOption option;
   option.set_device_type(CUDA);
   cuda_ctx = new CUDAContext(option);
+
   return true;
 #else
   return false;
