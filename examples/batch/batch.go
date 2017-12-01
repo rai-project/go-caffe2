@@ -1,5 +1,11 @@
 package main
 
+// #include <cuda.h>
+// #include <cuda_runtime.h>
+// #include <cuda_profiler_api.h>
+// #include <cudaProfiler.h>
+import "C"
+
 import (
 	"bufio"
 	"fmt"
@@ -18,7 +24,7 @@ import (
 )
 
 var (
-	batch        = 10
+	batch        = 128
 	graph_url    = "http://s3.amazonaws.com/store.carml.org/models/caffe2/squeezenet_1.0/predict_net.pb"
 	weights_url  = "http://s3.amazonaws.com/store.carml.org/models/caffe2/squeezenet_1.0/init_net.pb"
 	features_url = "http://data.dmlc.ml/mxnet/models/imagenet/synset.txt"
@@ -48,6 +54,8 @@ func cvtImageTo1DArray(src image.Image, mean float32) ([]float32, error) {
 }
 
 func main() {
+	defer C.cuProfilerStop()
+
 	dir, _ := filepath.Abs("../tmp")
 	graph := filepath.Join(dir, "predict_net.pb")
 	weights := filepath.Join(dir, "init_net.pb")
@@ -98,6 +106,7 @@ func main() {
 	if nvidiasmi.HasGPU {
 		device = options.CUDA_DEVICE
 	}
+	pp.Println("Using device = ", device)
 
 	// create predictor
 	predictor, err := caffe2.New(
