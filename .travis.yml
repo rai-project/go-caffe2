@@ -1,7 +1,56 @@
 language: cpp
 sudo: false
 
+  
+env:
+  global:
+  - CXX=g++-6
+  - CC=gcc-6
+  - CUDACXX=/usr/local/cuda-9.2/bin/nvcc
+  - LD_LIBRARY_PATH=/usr/local/nvidia/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+  - LD_LIBRARY_PATH=/usr/local/cuda-9.2/nvvm/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+  - LD_LIBRARY_PATH=/usr/local/cuda-9.2/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+  - LD_LIBRARY_PATH=/usr/local/cuda-9.2/lib64/stubs${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+  - LD_LIBRARY_PATH=/usr/local/cuda-9.2/targets/x86_64-linux/lib/stubs/:+:${LD_LIBRARY_PATH}}
+  - PATH=/usr/local/cuda-9.2/bin${PATH:+:${PATH}}
+  - CGO_LDFLAGS="${CGO_LDFLAGS} -L /usr/local/cuda-9.2/lib64/stubs"
+sources: &sources
+  - sourceline: ppa:ubuntu-toolchain-r/test
+  - sourceline: ppa:masterminds/glide
+  - sourceline: deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64
+      /
+    key_url: https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/7fa2af80.pub
+  - sourceline: deb https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64
+      /
 addons: &addons
+  - glide
+  - cmake
+  - libnccl2
+  - cuda-cudart-dev-9-2
+  - cuda-libraries-dev-9-2
+  - cuda-cublas-dev-9-2
+  - cuda-misc-headers-9-2
+  - cuda-nvml-dev-9-2
+  - libcudnn7
+  - libcudnn7-dev
+  - build-essential
+  - git
+  - wget
+  - libatlas-base-dev
+  - libboost-all-dev
+  - libgflags-dev
+  - libgoogle-glog-dev
+  - libhdf5-serial-dev
+  - libleveldb-dev
+  - liblmdb-dev
+  - libopencv-dev
+  - libprotobuf-dev
+  - libsnappy-dev
+  - protobuf-compiler
+  - python-dev
+  - python-numpy
+  - python-pip
+  - python-setuptools
   - build-essential
   - cmake
   - git
@@ -24,7 +73,6 @@ addons: &addons
   - openmpi-doc
   - python-pydot
   - libeigen3-dev
-
 matrix:
   allow_failures:
     - os: osx
@@ -36,23 +84,25 @@ matrix:
         apt:
           sources:
             - ubuntu-toolchain-r-test
+            - *sources
           packages:
             - g++-6
             - *addons
       env:
         - MATRIX_EVAL="CC=gcc-6 && CXX=g++-6"
     - os: linux
-      compiler: clang39
-      addons: &clang39
+      compiler: clang
+      addons: &clang50
         apt:
           sources:
-            - llvm-toolchain-precise-3.8
+            - llvm-toolchain-precise-5.0
             - ubuntu-toolchain-r-test
+            - *sources
           packages:
-            - clang-3.9
+            - clang-5.0
             - *addons
       env:
-        - MATRIX_EVAL="CC=clang-3.9 && CXX=clang++-3.9"
+        - MATRIX_EVAL="CC=clang-5.0 && CXX=clang++-5.0"
 
     - os: osx
       osx_image: xcode8.3
@@ -62,7 +112,7 @@ matrix:
 
 before_install:
   - eval "${MATRIX_EVAL}"
-  - eval "$(curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | bash)"
+  - eval "$(curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | GIMME_GO_VERSION=1.10.x bash)"
   - go env
   - export GOPATH=$HOME/gopath
   - export PATH=$HOME/gopath/bin:$PATH
