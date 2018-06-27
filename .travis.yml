@@ -92,17 +92,17 @@ matrix:
         - MATRIX_EVAL="CC=gcc-6 && CXX=g++-6"
     - os: linux
       compiler: clang
-      addons: &clang50
+      addons: &clang39
         apt:
           sources:
-            - llvm-toolchain-precise-5.0
+            - llvm-toolchain-precise-3.9
             - ubuntu-toolchain-r-test
             - *sources
           packages:
-            - clang-5.0
+            - clang-3.9
             - *addons
       env:
-        - MATRIX_EVAL="CC=clang-5.0 && CXX=clang++-5.0"
+        - MATRIX_EVAL="CC=clang-3.9 && CXX=clang++-3.9"
 
     - os: osx
       osx_image: xcode8.3
