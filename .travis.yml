@@ -1,7 +1,7 @@
 language: cpp
 sudo: false
 
-  
+
 env:
   global:
   - CXX=g++-6
@@ -14,9 +14,8 @@ env:
   - LD_LIBRARY_PATH=/usr/local/cuda-9.2/targets/x86_64-linux/lib/stubs/:+:${LD_LIBRARY_PATH}}
   - PATH=/usr/local/cuda-9.2/bin${PATH:+:${PATH}}
   - CGO_LDFLAGS="${CGO_LDFLAGS} -L /usr/local/cuda-9.2/lib64/stubs"
-  
+
 addons: &addons
-  - glide
   - cmake
   - libnccl2
   - cuda-cudart-dev-9-2
@@ -77,7 +76,6 @@ matrix:
         apt:
           sources:
             - sourceline: ppa:ubuntu-toolchain-r/test
-            - sourceline: ppa:masterminds/glide
             - sourceline: deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64
                 /
               key_url: https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/7fa2af80.pub
@@ -142,15 +140,13 @@ before_install:
   - make install
   - ls -l /opt/caffe2
   - go get github.com/Masterminds/glide
-  - curl -L -s https://github.com/golang/dep/releases/download/v0.4.1/dep-linux-amd64 -o $GOPATH/bin/dep
-  - chmod +x $GOPATH/bin/dep
-
+  - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 install:
-  - cd ${TRAVIS_BUILD_DIR}
-  - dep ensure
-  - rm -fr vendor/github.com/Sirupsen
-  - find vendor -type f -exec sed -i 's/Sirupsen/sirupsen/g' {} +
-  - go build
+- cd ${TRAVIS_BUILD_DIR}
+- dep ensure -v
+- rm -fr vendor/github.com/Sirupsen
+- find vendor -type f -exec sed -i 's/Sirupsen/sirupsen/g' {} +
+- go build
 
 script:
   - echo "Skip tests..."
