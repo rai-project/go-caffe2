@@ -25,12 +25,14 @@ LABEL org.carml.go-caffe2.build-date=$BUILD_DATE \
 ########## DEPENDENCIES INSTALLATION ###################
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libgoogle-glog-dev \
+        libgtest-dev \
         libprotobuf-dev \
         protobuf-compiler \
         libgflags-dev \
         libiomp-dev \
         libleveldb-dev \
         liblmdb-dev \
+        libopencv-dev \
         libopenmpi-dev \
         libsnappy-dev \
         openmpi-bin \
@@ -41,29 +43,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ########## LIBRARY INSTALLATION ###################
 
 WORKDIR /opt
-ENV CAFFE2_SRC_DIR /opt/caffe2
+ENV CAFFE2_SRC_DIR /opt/pytorch/caffe2
 
-RUN git clone --branch $FRAMEWORK_VERSION https://github.com/caffe2/caffe2.git
+RUN git clone --depth=1 --recursive --branch=master https://github.com/pytorch/pytorch.git
 
 WORKDIR $CAFFE2_SRC_DIR
 
 RUN cd $CAFFE2_SRC_DIR && \
-    git submodule init && \
-    git rm third_party/cub && \
-    cd third_party && \
-    git clone --branch $CUB_VERSION https://github.com/NVlabs/cub
-
-RUN cd $CAFFE2_SRC_DIR && \
-    git submodule update --init --recursive && \
-    cd third_party/benchmark && \
-    git checkout master && \
-    git pull
+    cd .. && \
+    git submodule update --init 
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libnccl-dev libnccl1 && \
     rm -rf /var/lib/apt/lists/*
 
-RUN cd $CAFFE2_SRC_DIR && mkdir build && cd build && \
+RUN cd $CAFFE2_SRC_DIR && cd .. && mkdir build && cd build && \
 	cmake .. \
 		-DCMAKE_INSTALL_PREFIX=$DIST_DIR \
 		-DUSE_CUDA=1 \
@@ -90,7 +84,7 @@ ENV PKG github.com/rai-project/go-caffe2
 WORKDIR $GOPATH/src/$PKG
 
 RUN git clone --depth=1 --branch=master https://${PKG}.git . && \
-    glide install && \
+    dep ensure && \
     rm -fr vendor/github.com/Sirupsen && \
     find vendor -type f -exec sed -i 's/Sirupsen/sirupsen/g' {} + && \
     go build -a -installsuffix cgo -ldflags "-s -w -X ${PKG}/Version=${VERSION} -X ${PKG}/GitCommit=${VCS_REF} -X ${PKG}/BuildDate=${BUILD_DATE}"&& \
