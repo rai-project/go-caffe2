@@ -73,12 +73,15 @@ class TimeObserver final : public ObserverBase<T> {
   profile **prof_{nullptr};
   profile_entry *entry_{nullptr};
   std::string profile_name_{""}, profile_metadata_{""};
-  bool Start() override;
-  bool Stop() override;
+  // change overriding return type to void
+  // to make it a covariant
+  // TODO: check if it breaks anything?
+  void Start() override;
+  void Stop() override;
 };
 
 template <>
-bool TimeObserver<NetBase>::Start() {
+void TimeObserver<NetBase>::Start() {
   const auto net = this->subject();
   auto net_name = net->Name();
   if (net_name.empty()) {
@@ -86,22 +89,20 @@ bool TimeObserver<NetBase>::Start() {
   }
   *this->prof_ = new profile(net_name, profile_metadata_);
   for (auto *op : subject_->GetOperators()) {
-    op->SetObserver(caffe2::make_unique<TimeObserver<OperatorBase>>(op, prof_));
+    op->AttachObserver(caffe2::make_unique<TimeObserver<OperatorBase>>(op, prof_));
   }
   const auto p = *this->prof_;
   p->start();
-  return true;
 }
 
 template <>
-bool TimeObserver<NetBase>::Stop() {
+void TimeObserver<NetBase>::Stop() {
   const auto p = *this->prof_;
   p->end();
-  return true;
 }
 
 template <>
-bool TimeObserver<OperatorBase>::Start() {
+void TimeObserver<OperatorBase>::Start() {
   const auto &op = this->subject();
   std::string name{""}, metadata{""};
   if (op->has_debug_def()) {
@@ -110,15 +111,13 @@ bool TimeObserver<OperatorBase>::Start() {
     metadata = opdef.name();
   }
   this->entry_ = new profile_entry(name, metadata);
-  return true;
 }
 
 template <>
-bool TimeObserver<OperatorBase>::Stop() {
+void TimeObserver<OperatorBase>::Stop() {
   this->entry_->end();
   const auto p = *this->prof_;
   p->add(this->entry_);
-  return true;
 }
 
 template <typename Context>
@@ -178,22 +177,20 @@ static const char *predictImpl(PredictorObject<Context> *obj, float *imageData,
   output_vector_t outputVec{};
 
   auto net = predictor->net();
-  if (obj->profile_enabled_) {
-    unique_ptr<TimeObserver<NetBase>> net_ob =
-        make_unique<TimeObserver<NetBase>>(net, &obj->prof_, obj->profile_name_,
-                                           obj->profile_metadata_);
-    net->SetObserver(std::move(net_ob));
-  } else {
-    net->RemoveObserver();
-  }
 
-  predictor->run(inputVec, &outputVec);
-  auto output_tensor = outputVec[0];
-  auto len = output_tensor.size() / batch;
-  auto probs = (float *)output_tensor.raw_data();
+  if(obj->profile_enabled_) { 
+    unique_ptr<TimeObserver<NetBase>> net_ob =
+        make_unique<TimeObserver<NetBase>>(net, &obj->prof_, obj->profile_name_, obj->profile_metadata_);
+    net->AttachObserver(std::move(net_ob));
+  }
+  
+  predictor->run(inputVec, &outputVec); 
+
+  auto len = outputVec[0].size() / batch;
+  auto probs = (float *)outputVec[0].raw_data();
 
   std::vector<Prediction> predictions;
-  predictions.reserve(output_tensor.size());
+  predictions.reserve(outputVec[0].size());
   for (int cnt = 0; cnt < batch; cnt++) {
     for (int idx = 0; idx < len; idx++) {
       predictions.emplace_back(std::make_pair(idx, probs[cnt * len + idx]));
@@ -206,6 +203,7 @@ static const char *predictImpl(PredictorObject<Context> *obj, float *imageData,
         {{"index", prediction.first}, {"probability", prediction.second}});
   }
   auto res = strdup(preds.dump().c_str());
+  
   return res;
 }
 

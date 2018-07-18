@@ -113,7 +113,11 @@ class Predictor {
     enforceIsTensor(ws, name);
     auto* blob = ws->GetBlob(name);
     CAFFE_ENFORCE(blob, "Blob: ", name, " does not exist");
-    auto* tensor = blob->template GetMutable<TensorDevice>();
+    // Query: Is the tensor being shared to supposed to be on
+    // the CPU ? Or can it be on the GPU as well ?
+    // creating a TensorDevice as before leads to 'no matching
+    // function' error...
+    auto* tensor = blob->template GetMutable<TensorCPU>();
     tensor->ResizeLike(*input);
     tensor->ShareData(*input);
   }
@@ -123,12 +127,18 @@ class Predictor {
     auto* blob = ws->GetBlob(name);
     CAFFE_ENFORCE(blob, "Blob: ", name, " does not exist");
 #ifdef WITH_CUDA
-    if (blob->IsType<TensorCUDA>())
-      return blob->Get<TensorCUDA>();
+    if (blob->IsType<TensorCUDA>()) {
+      // Copy TensorGPU to TensorCPU
+      // Note: copy constructor no longer permitted
+      // should be using Clone() explicitly
+      TensorCPU x;
+      x.CopyFrom(blob->Get<TensorCUDA>().Clone());
+      return x;
+    }
     else if (blob->IsType<TensorCPU>())
-      return blob->Get<TensorCPU>();
+      return (blob->Get<TensorCPU>()).Clone();
 #endif  // WITH_CUDA
-    return blob->Get<TensorCPU>();
+    return (blob->Get<TensorCPU>()).Clone();
   }
 };
 }
