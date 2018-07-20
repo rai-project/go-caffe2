@@ -20,7 +20,8 @@ import (
 	"github.com/rai-project/dlframework/framework/options"
 	"github.com/rai-project/downloadmanager"
 	caffe2 "github.com/rai-project/go-caffe2"
-	nvidiasmi "github.com/rai-project/nvidia-smi"
+        // TODO: uncomment once blob type error is solved
+	//nvidiasmi "github.com/rai-project/nvidia-smi"
 )
 
 var (
@@ -103,9 +104,12 @@ func main() {
 	opts := options.New()
 
 	device := options.CPU_DEVICE
-	if nvidiasmi.HasGPU {
+        // TODO: blob type error
+        // blob contains caffe2::Tensor<CPUContext>
+        // but caller (predictor mostly) expects caffe2:Tensor<CUDAContext>
+	/*if nvidiasmi.HasGPU {
 		device = options.CUDA_DEVICE
-	}
+	}*/
 	pp.Println("Using device = ", device)
 
 	// create predictor
