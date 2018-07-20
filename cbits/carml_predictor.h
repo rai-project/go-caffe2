@@ -113,11 +113,7 @@ class Predictor {
     enforceIsTensor(ws, name);
     auto* blob = ws->GetBlob(name);
     CAFFE_ENFORCE(blob, "Blob: ", name, " does not exist");
-    // Query: Is the tensor being shared to supposed to be on
-    // the CPU ? Or can it be on the GPU as well ?
-    // creating a TensorDevice as before leads to 'no matching
-    // function' error...
-    auto* tensor = blob->template GetMutable<TensorCPU>();
+    auto* tensor = blob->template GetMutable<TensorDevice>();
     tensor->ResizeLike(*input);
     tensor->ShareData(*input);
   }
