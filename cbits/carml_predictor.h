@@ -41,11 +41,7 @@ class Predictor {
       run_net.mutable_device_option()->set_device_type(CUDA);
       for (int i = 0; i < run_net.op_size(); i++) {
            caffe2::OperatorDef* op_def = run_net.mutable_op(i);
-          op_def->set_engine("CUDNN");
-          // TODO: set device option for each operation
-          if(op_def.has_device_option()) {
-            op_def.mutable_device_option()->set_device_option(CUDA);
-          }
+          op_def->set_engine("CUDNN"); 
       }
     }
 #endif  // WITH_CUDA

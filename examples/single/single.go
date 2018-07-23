@@ -15,7 +15,7 @@ import (
 	"github.com/rai-project/dlframework/framework/options"
 	"github.com/rai-project/downloadmanager"
 	"github.com/rai-project/go-caffe2"
-	//nvidiasmi "github.com/rai-project/nvidia-smi"
+	nvidiasmi "github.com/rai-project/nvidia-smi"
 	_ "github.com/rai-project/tracer/all"
 )
 
@@ -69,9 +69,9 @@ func main() {
 	opts := options.New()
 
 	device := options.CPU_DEVICE
-	/*if nvidiasmi.HasGPU {
+	if nvidiasmi.HasGPU {
 		device = options.CUDA_DEVICE
-	}*/
+	}
 	pp.Println("Using device = ", device)
 
 	// create predictor
@@ -80,6 +80,7 @@ func main() {
 		options.Device(device, 0),
 		options.Graph([]byte(graph)),
 		options.Weights([]byte(weights)))
+
 
 	if err != nil {
 		panic(err)
