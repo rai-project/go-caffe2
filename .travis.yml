@@ -132,13 +132,6 @@ before_install:
       which cmake || brew install cmake
     fi
   - if [ $TRAVIS_OS_NAME == osx ]; then brew update && brew upgrade eigen automake cmake git glog protobuf python ; fi
-  - cd ${HOME}
-  - git clone --depth 1 --recursive https://github.com/caffe2/caffe2.git ${HOME}/caffe2
-  - mkdir ${HOME}/caffe2_build && cd ${HOME}/caffe2_build
-  - cmake -DCMAKE_INSTALL_PREFIX:PATH=/opt/caffe2 -DUSE_CUDA=OFF -DBUILD_PYTHON=OFF -DUSE_OPENCV=OFF -DUSE_OPENMP=OFF -DUSE_ROCKSDB=OFF -DUSE_MPI=OFF -DUSE_NNPACK=OFF -DUSE_GLOO=OFF -DUSE_NCCL=OFF ${HOME}/caffe2
-  - make
-  - make install
-  - ls -l /opt/caffe2
   - go get github.com/Masterminds/glide
   - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 install:
@@ -146,9 +139,12 @@ install:
 - dep ensure -v
 - rm -fr vendor/github.com/Sirupsen
 - find vendor -type f -exec sed -i 's/Sirupsen/sirupsen/g' {} +
-- go build
 
 script:
+  - echo ${TRAVIS_BUILD_DIR}
+  - cd ${TRAVIS_BUILD_DIR}/dockerfiles
+  - make docker_build
+  - echo "Docker build successful..."
   - echo "Skip tests..."
 after_script:
   - go test -race -v $(glide novendor)
