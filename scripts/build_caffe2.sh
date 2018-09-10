@@ -3,8 +3,8 @@ CAFFE2_SRC_DIR=$HOME/code/pytorch
 
 git clone --single-branch --depth=1 --recurse-submodules -j8 --branch=$FRAMEWORK_VERSION https://github.com/pytorch/pytorch.git $CAFFE2_SRC_DIR
 
-DIST_DIR=/opt/pytorch/caffe2
-mkdir -p $DIST_DIR
+CAFFE2_DIST_DIR=/opt/pytorch/caffe2
+mkdir -p $CAFFE2_DIST_DIR
 
 cd $CAFFE2_SRC_DIR && git submodule update --init && mkdir -p build && cd build && \
 	cmake .. \
@@ -20,6 +20,6 @@ cd $CAFFE2_SRC_DIR && git submodule update --init && mkdir -p build && cd build 
       -DUSE_NCCL=OFF \
       -DUSE_PROF=ON \
       -DBUILD_CUSTOM_PROTOBUF=OFF \
-      -DCMAKE_INSTALL_PREFIX=$DIST_DIR \
-	&& make -j4 install
+      -DCMAKE_INSTALL_PREFIX=$CAFFE2_DIST_DIR \
+	&& make -j"$(nproc)" install
 

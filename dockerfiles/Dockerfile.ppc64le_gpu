@@ -39,51 +39,41 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   rm -rf /var/lib/apt/lists/*
 
 ########## LIBRARY INSTALLATION ###################
+ENV CAFFE2_DIST_DIR /opt/pytorch/caffe2
 
-WORKDIR /opt
-ENV CAFFE2_SRC_DIR /opt/pytorch/caffe2
-
-RUN git clone --single-branch --depth=1 --recursive --branch=$FRAMEWORK_VERSION https://github.com/pytorch/pytorch.git
-
-WORKDIR $CAFFE2_SRC_DIR
-
-RUN cd $CAFFE2_SRC_DIR && \
-  cd .. && \
-  git submodule update --init
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-  libnccl-dev libnccl1 && \
-  rm -rf /var/lib/apt/lists/*
-
-RUN cd $CAFFE2_SRC_DIR && cd .. && mkdir build && cd build && \
+RUN git clone --single-branch --depth=1 --recursive --branch=$FRAMEWORK_VERSION https://github.com/pytorch/pytorch.git && cd pytorch && \
+  git submodule update --init && \
+  mkdir build && cd build && \
   cmake .. \
   -DCMAKE_INSTALL_PREFIX=$DIST_DIR \
-  -DUSE_CUDA=ON \
-  -DUSE_CUDNN=ON \
-  -DUSE_NCCL=1 \
-  -DNCCL_ROOT=/opt/DL/nccl \
   -DUSE_OBSERVERS=ON \
   -DBLAS=OpenBLAS \
-  -DBUILD_SHARED_LIBS=1 \
-  -DCUDA_ARCH_NAME=Manual \
-  -DCUDA_ARCH_BIN="35 52 60 61 70" \
-  -DCUDA_ARCH_PTX="61 70" \
   -DBUILD_CUSTOM_PROTOBUF=OFF \
+  -DBUILD_PYTHON=OFF \
   -DUSE_NNPACK=OFF \
   -DUSE_ROCKSDB=OFF \
   -DUSE_OPENCV=OFF \
-  -DBUILD_PYTHON=OFF \
+  -DUSE_GLOO=OFF \
+  -DUSE_NCCL=OFF \
+  -DUSE_CUDA=ON \
+  -DUSE_CUDNN=ON \
+  -DBUILD_SHARED_LIBS=ON \
+  -DCUDA_ARCH_NAME=Manual \
+  -DCUDA_ARCH_BIN="35 52 60 61 70" \
+  -DCUDA_ARCH_PTX="61 70" \
   && make -j"$(nproc)" install \
   && ldconfig \
   && make clean \
   && cd .. \
   && rm -rf build
 
+RUN echo "$CAFFE2_DIST_DIR/lib" >> /etc/ld.so.conf.d/caffe2.conf && ldconfig
+
 ########## GO BINDING INSTALLATION ###################
 ENV PKG github.com/rai-project/go-caffe2
 WORKDIR $GOPATH/src/$PKG
 
-RUN git clone --depth=1 --branch=master https://${PKG}.git . && \
+RUN git clone --depth=1 --branch=$VERSION https://${PKG}.git . && \
   dep ensure && \
   rm -fr vendor/github.com/Sirupsen && \
   find vendor -type f -exec sed -i 's/Sirupsen/sirupsen/g' {} + && \

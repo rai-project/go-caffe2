@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	sourcepath "github.com/GeertJohan/go-sourcepath"
 	"github.com/k0kubun/pp"
 
 	"github.com/anthonynsimon/bild/imgio"
@@ -81,14 +82,13 @@ func main() {
 		options.Graph([]byte(graph)),
 		options.Weights([]byte(weights)))
 
-
 	if err != nil {
 		panic(err)
 	}
 	defer predictor.Close()
 
 	// load test image for predction
-	img, err := imgio.Open("../_fixtures/platypus.jpg")
+	img, err := imgio.Open(filepath.Join(sourcepath.MustAbsoluteDir(), "..", "_fixtures", "platypus.jpg"))
 	if err != nil {
 		panic(err)
 	}

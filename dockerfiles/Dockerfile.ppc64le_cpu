@@ -39,42 +39,36 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   rm -rf /var/lib/apt/lists/*
 
 ########## LIBRARY INSTALLATION ###################
+ENV CAFFE2_DIST_DIR /opt/pytorch/caffe2
 
-WORKDIR /opt
-ENV CAFFE2_SRC_DIR /opt/pytorch/caffe2
-
-RUN git clone --single-branch --depth=1 --recursive --branch=$FRAMEWORK_VERSION https://github.com/pytorch/pytorch.git
-
-WORKDIR $CAFFE2_SRC_DIR
-
-RUN cd $CAFFE2_SRC_DIR && \
-  cd .. && \
-  git submodule update --init
-
-RUN cd $CAFFE2_SRC_DIR && cd .. && mkdir build && cd build \
-  && cmake .. \
+RUN git clone --single-branch --depth=1 --recursive --branch=$FRAMEWORK_VERSION https://github.com/pytorch/pytorch.git && cd pytorch && \
+  git submodule update --init && \
+  mkdir build && cd build && \
+  cmake .. \
+  -DCMAKE_INSTALL_PREFIX=$CAFFE2_DIST_DIR \
   -DUSE_OBSERVERS=ON \
   -DBLAS=OpenBLAS \
-  -DUSE_CUDA=OFF \
+  -DBUILD_CUSTOM_PROTOBUF=OFF \
+  -DBUILD_PYTHON=OFF \
   -DUSE_NNPACK=OFF \
   -DUSE_ROCKSDB=OFF \
-  -DBUILD_PYTHON=OFF \
-  -DBUILD_CUSTOM_PROTOBUF=OFF \
   -DUSE_OPENCV=OFF \
-  -DUSE_NNPACK=OFF \
   -DUSE_GLOO=OFF \
   -DUSE_NCCL=OFF \
-  && make install \
+  -DUSE_CUDA=OFF \
+  && make -j"$(nproc)" install \
   && ldconfig \
   && make clean \
   && cd .. \
   && rm -rf build
 
+RUN echo "$CAFFE2_DIST_DIR/lib" >> /etc/ld.so.conf.d/caffe2.conf && ldconfig
+
 ########## GO BINDING INSTALLATION ###################
 ENV PKG github.com/rai-project/go-caffe2
 WORKDIR $GOPATH/src/$PKG
 
-RUN git clone --depth=1 --branch=master https://${PKG}.git . && \
+RUN git clone --depth=1 --branch=$VERSION https://${PKG}.git . && \
   dep ensure && \
   rm -fr vendor/github.com/Sirupsen && \
   find vendor -type f -exec sed -i 's/Sirupsen/sirupsen/g' {} + && \
