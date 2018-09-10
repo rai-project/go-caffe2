@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"image"
 	"os"
@@ -17,7 +18,9 @@ import (
 	"github.com/rai-project/downloadmanager"
 	"github.com/rai-project/go-caffe2"
 	nvidiasmi "github.com/rai-project/nvidia-smi"
+	"github.com/rai-project/tracer"
 	_ "github.com/rai-project/tracer/all"
+	"github.com/rai-project/tracer/ctimer"
 )
 
 var (
@@ -54,6 +57,11 @@ func main() {
 	graph := filepath.Join(dir, "predict_net.pb")
 	weights := filepath.Join(dir, "init_net.pb")
 	features := filepath.Join(dir, "synset.txt")
+
+	defer tracer.Close()
+
+	span, ctx := tracer.StartSpanFromContext(context.Background(), tracer.FULL_TRACE, "caffe_single")
+	defer span.Finish()
 
 	if _, err := downloadmanager.DownloadInto(graph_url, dir); err != nil {
 		os.Exit(-1)
@@ -100,12 +108,25 @@ func main() {
 		panic(err)
 	}
 
-	// predictor.StartProfiling("test", "net_metadata")
+	predictor.StartProfiling("test", "net_metadata")
 	predictions, err := predictor.Predict(res, 1, 3, 227, 227)
-	// predictor.EndProfiling()
-	// profile, _ := predictor.ReadProfile()
-	// fmt.Println(profile)
-	// predictor.DisableProfiling()
+	predictor.EndProfiling()
+
+	profBuffer, err := predictor.ReadProfile()
+	if err != nil {
+		pp.Println(err)
+		os.Exit(-1)
+	}
+
+	t, err := ctimer.New(profBuffer)
+	if err != nil {
+		pp.Println(err)
+		os.Exit(-1)
+	}
+	t.Publish(ctx)
+	predictor.DisableProfiling()
+
+	pp.Println(t)
 
 	predictions.Sort()
 

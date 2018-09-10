@@ -72,10 +72,13 @@ class TimeObserver final : public ObserverBase<T> {
         profile_metadata_(profile_metadata) {}
   ~TimeObserver() {}
 
+  void set_layer_sequence_index(int ii) { layer_sequence_index_ = ii; }
+
  private:
   profile **prof_{nullptr};
   profile_entry *entry_{nullptr};
   std::string profile_name_{""}, profile_metadata_{""};
+  int layer_sequence_index_{0};  // this is not valid for net
   // change overriding return type to void
   // to make it a covariant
   // TODO: check if it breaks anything?
@@ -91,9 +94,12 @@ void TimeObserver<NetBase>::Start() {
     net_name = profile_name_;
   }
   *this->prof_ = new profile(net_name, profile_metadata_);
+  int current_layer_sequence_index = 1;
   for (auto *op : subject_->GetOperators()) {
-    op->AttachObserver(
-        caffe2::make_unique<TimeObserver<OperatorBase>>(op, prof_));
+    auto obs = caffe2::make_unique<TimeObserver<OperatorBase>>(op, prof_);
+    obs->set_layer_sequence_index(current_layer_sequence_index);
+    op->AttachObserver(std::move(obs));
+    current_layer_sequence_index++;
   }
   const auto p = *this->prof_;
   p->start();
@@ -114,7 +120,16 @@ void TimeObserver<OperatorBase>::Start() {
     name = opdef.type();
     metadata = opdef.name();
   }
-  this->entry_ = new profile_entry(name, metadata);
+  shapes_t shapes{};
+  for (const auto shape : op->InputTensorShapes()) {
+    std::vector<int> dims{};
+    for (const auto s : shape.dims()) {
+      dims.emplace_back(s);
+    }
+    shapes.emplace_back(dims);
+  }
+  this->entry_ =
+      new profile_entry(layer_sequence_index_, name, metadata, shapes);
 }
 
 template <>
