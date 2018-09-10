@@ -1,39 +1,25 @@
-FRAMEWORK_VERSION=v0.8.1
-CUB_VERSION=1.7.3
-CAFFE2_SRC_DIR=$HOME/code/caffe2
+FRAMEWORK_VERSION=v0.4.1
+CAFFE2_SRC_DIR=$HOME/code/pytorch
 
-git clone --branch $FRAMEWORK_VERSION https://github.com/caffe2/caffe2.git $CAFFE2_SRC_DIR
+git clone --single-branch --depth=1 --recurse-submodules -j8 --branch=$FRAMEWORK_VERSION https://github.com/pytorch/pytorch.git $CAFFE2_SRC_DIR
 
-cd $CAFFE2_SRC_DIR && \
-	git submodule init && \
-    	git rm third_party/cub && \
-    	cd third_party && \
-    	git clone --branch $CUB_VERSION https://github.com/NVlabs/cub
-
-cd $CAFFE2_SRC_DIR && \
-	git submodule update --init --recursive && \
-    	cd third_party/benchmark && \
-    	git checkout master && \
-    	git pull
-
-DIST_DIR=$HOME/frameworks/caffe2
+DIST_DIR=/opt/pytorch/caffe2
 mkdir -p $DIST_DIR
 
-cd $CAFFE2_SRC_DIR && mkdir build && cd build && \
+cd $CAFFE2_SRC_DIR && git submodule update --init && mkdir -p build && cd build && \
 	cmake .. \
-		-DCMAKE_INSTALL_PREFIX=$DIST_DIR \
-		-DUSE_CUDA=1 \
-		-DUSE_NCCL=1 \
-		-DNCCL_ROOT=/opt/DL/nccl \
-		-DUSE_OBSERVERS=ON \
-		-DBLAS=OpenBLAS \
-		-DBUILD_SHARED_LIBS=1 \
-		-DCUDA_ARCH_NAME=Manual \
-		-DCUDA_ARCH_BIN="35 52 60 61" \
-		-DCUDA_ARCH_PTX="61" \
-		-DUSE_NNPACK=OFF \
-		-DUSE_ROCKSDB=OFF \
-		-DUSE_OPENCV=OFF \
-		-DBUILD_PYTHON=OFF \
-	&& make -j"$(nproc)" install
+		 -DUSE_OBSERVERS=ON \
+      -DBLAS=OpenBLAS \
+      -DUSE_CUDA=OFF \
+      -DUSE_NNPACK=OFF \
+      -DUSE_ROCKSDB=OFF \
+      -DBUILD_PYTHON=OFF \
+      -DUSE_OPENCV=OFF \
+      -DUSE_NNPACK=OFF \
+      -DUSE_GLOO=OFF \
+      -DUSE_NCCL=OFF \
+      -DUSE_PROF=ON \
+      -DBUILD_CUSTOM_PROTOBUF=OFF \
+      -DCMAKE_INSTALL_PREFIX=$DIST_DIR \
+	&& make -j4 install
 

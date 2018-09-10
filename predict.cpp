@@ -5,11 +5,14 @@
 #include <utility>
 #include <vector>
 
+#include "caffe2/proto/caffe2.pb.h"
+
 #include <caffe2/core/common.h>
 #include <caffe2/core/init.h>
+#include <caffe2/utils/proto_utils.h>
+
 #include <caffe2/core/observer.h>
 #include <caffe2/core/operator.h>
-#include <caffe2/utils/proto_utils.h>
 
 #ifdef WITH_CUDA
 #include <caffe2/core/context_gpu.h>
@@ -89,7 +92,8 @@ void TimeObserver<NetBase>::Start() {
   }
   *this->prof_ = new profile(net_name, profile_metadata_);
   for (auto *op : subject_->GetOperators()) {
-    op->AttachObserver(caffe2::make_unique<TimeObserver<OperatorBase>>(op, prof_));
+    op->AttachObserver(
+        caffe2::make_unique<TimeObserver<OperatorBase>>(op, prof_));
   }
   const auto p = *this->prof_;
   p->start();
@@ -178,13 +182,14 @@ static const char *predictImpl(PredictorObject<Context> *obj, float *imageData,
 
   auto net = predictor->net();
 
-  if(obj->profile_enabled_) { 
+  if (obj->profile_enabled_) {
     unique_ptr<TimeObserver<NetBase>> net_ob =
-        make_unique<TimeObserver<NetBase>>(net, &obj->prof_, obj->profile_name_, obj->profile_metadata_);
+        make_unique<TimeObserver<NetBase>>(net, &obj->prof_, obj->profile_name_,
+                                           obj->profile_metadata_);
     net->AttachObserver(std::move(net_ob));
   }
-  
-  predictor->run(inputVec, &outputVec); 
+
+  predictor->run(inputVec, &outputVec);
 
   auto len = outputVec[0].size() / batch;
   auto probs = (float *)outputVec[0].raw_data();
@@ -203,7 +208,7 @@ static const char *predictImpl(PredictorObject<Context> *obj, float *imageData,
         {{"index", prediction.first}, {"probability", prediction.second}});
   }
   auto res = strdup(preds.dump().c_str());
-  
+
   return res;
 }
 

@@ -22,14 +22,16 @@ mkdir -p $DIST_DIR
 cd $CAFFE2_SRC_DIR && mkdir build && cd build && \
 	cmake .. \
 		-DCMAKE_INSTALL_PREFIX=$DIST_DIR \
-		-DUSE_CUDA=1 \
+		-DUSE_CUDA=ON \
+    -DUSE_CUDNN=ON \
 		-DUSE_NCCL=1 \
 		-DBUILD_SHARED_LIBS=1 \
 		-DNCCL_INCLUDE_DIR=/opt/DL/nccl/include \
 		-DNCCL_LIBRARY=/opt/DL/nccl/lib \
 		-DCUDA_ARCH_NAME=Manual \
-		-DCUDA_ARCH_BIN="35 52 60 61" \
-		-DCUDA_ARCH_PTX="61" \
+		-DCUDA_ARCH_BIN="35 52 60 61 70" \
+		-DCUDA_ARCH_PTX="61 70" \
+    -DBUILD_CUSTOM_PROTOBUF=OFF \
 		-DUSE_NNPACK=OFF \
 		-DUSE_ROCKSDB=OFF \
 		-DUSE_OPENCV=OFF \

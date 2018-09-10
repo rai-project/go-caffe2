@@ -40,8 +40,8 @@ class Predictor {
       init_net.mutable_device_option()->set_device_type(CUDA);
       run_net.mutable_device_option()->set_device_type(CUDA);
       for (int i = 0; i < run_net.op_size(); i++) {
-           caffe2::OperatorDef* op_def = run_net.mutable_op(i);
-          op_def->set_engine("CUDNN"); 
+        caffe2::OperatorDef* op_def = run_net.mutable_op(i);
+        op_def->set_engine("CUDNN");
       }
     }
 #endif  // WITH_CUDA
@@ -71,7 +71,7 @@ class Predictor {
   //   outputs->size() == run_net.external_inputs.size()
 
   // Returns true on success
-  
+
   bool run(const TensorCPUVector& inputs, TensorOutputVector* outputs) {
     CAFFE_ENFORCE(inputs.size() <= input_names_.size());
 
@@ -121,8 +121,7 @@ class Predictor {
     auto* tensor = blob->template GetMutable<TensorCPU>();
     tensor->ResizeLike(*input);
     tensor->ShareData(*input);
-#endif // WITH_CUDA
-
+#endif  // WITH_CUDA
   }
 
   TensorCPU extractOutputTensor(Workspace* ws, const std::string& name) {
@@ -137,11 +136,10 @@ class Predictor {
       TensorCPU x;
       x.CopyFrom(blob->Get<TensorCUDA>().Clone());
       return x;
-    }
-    else if (blob->IsType<TensorCPU>())
+    } else if (blob->IsType<TensorCPU>())
       return (blob->Get<TensorCPU>()).Clone();
 #endif  // WITH_CUDA
     return (blob->Get<TensorCPU>()).Clone();
   }
 };
-}
+}  // namespace carml

@@ -8,85 +8,85 @@ ARG VCS_URL
 ARG VERSION
 ARG ARCH
 ARG FRAMEWORK_VERSION
-ARG CUB_VERSION
 LABEL org.carml.go-caffe2.build-date=$BUILD_DATE \
-      org.carml.go-caffe2.name="go-caffe2 bindings for go with cuda support" \
-      org.carml.go-caffe2.description="" \
-      org.carml.go-caffe2.url="https://www.carml.org/" \
-      org.carml.go-caffe2.vcs-ref=$VCS_REF \
-      org.carml.go-caffe2.vcs-url=$VCS_URL \
-      org.carml.go-caffe2.vendor="CarML" \
-      org.carml.go-caffe2.arch=$ARCH \
-      org.carml.go-caffe2.version=$VERSION \
-      org.carml.go-caffe2.framework_version=$FRAMEWORK_VERSION \
-      org.carml.go-caffe2.schema-version="1.0" \
-      org.carml.go-caffe2.cub.version=$CUB_VERSION
+  org.carml.go-caffe2.name="go-caffe2 bindings for go with cuda support" \
+  org.carml.go-caffe2.description="" \
+  org.carml.go-caffe2.url="https://www.carml.org/" \
+  org.carml.go-caffe2.vcs-ref=$VCS_REF \
+  org.carml.go-caffe2.vcs-url=$VCS_URL \
+  org.carml.go-caffe2.vendor="CarML" \
+  org.carml.go-caffe2.arch=$ARCH \
+  org.carml.go-caffe2.version=$VERSION \
+  org.carml.go-caffe2.framework_version=$FRAMEWORK_VERSION \
+  org.carml.go-caffe2.schema-version="1.0"
 
 ########## DEPENDENCIES INSTALLATION ###################
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libgoogle-glog-dev \
-        libgtest-dev \
-        libprotobuf-dev \
-        protobuf-compiler \
-        libgflags-dev \
-        libiomp-dev \
-        libleveldb-dev \
-        liblmdb-dev \
-        libopencv-dev \
-        libopenmpi-dev \
-        libsnappy-dev \
-        openmpi-bin \
-        openmpi-doc \
-        libeigen3-dev && \
-    rm -rf /var/lib/apt/lists/*
+  libgoogle-glog-dev \
+  libgtest-dev \
+  libprotobuf-dev \
+  protobuf-compiler \
+  libgflags-dev \
+  libiomp-dev \
+  libleveldb-dev \
+  liblmdb-dev \
+  libopencv-dev \
+  libopenmpi-dev \
+  libsnappy-dev \
+  openmpi-bin \
+  openmpi-doc \
+  libeigen3-dev && \
+  rm -rf /var/lib/apt/lists/*
 
 ########## LIBRARY INSTALLATION ###################
 
 WORKDIR /opt
 ENV CAFFE2_SRC_DIR /opt/pytorch/caffe2
 
-RUN git clone --depth=1 --recursive --branch=master https://github.com/pytorch/pytorch.git
+RUN git clone --single-branch --depth=1 --recursive --branch=$FRAMEWORK_VERSION https://github.com/pytorch/pytorch.git
 
 WORKDIR $CAFFE2_SRC_DIR
 
 RUN cd $CAFFE2_SRC_DIR && \
-    cd .. && \
-    git submodule update --init 
+  cd .. && \
+  git submodule update --init
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libnccl-dev libnccl1 && \
-    rm -rf /var/lib/apt/lists/*
+  libnccl-dev libnccl1 && \
+  rm -rf /var/lib/apt/lists/*
 
 RUN cd $CAFFE2_SRC_DIR && cd .. && mkdir build && cd build && \
-	cmake .. \
-		-DCMAKE_INSTALL_PREFIX=$DIST_DIR \
-		-DUSE_CUDA=1 \
-		-DUSE_NCCL=1 \
-		-DNCCL_ROOT=/opt/DL/nccl \
-		-DUSE_OBSERVERS=ON \
-		-DBLAS=OpenBLAS \
-		-DBUILD_SHARED_LIBS=1 \
-		-DCUDA_ARCH_NAME=Manual \
-		-DCUDA_ARCH_BIN="35 52 60 61" \
-		-DCUDA_ARCH_PTX="61" \
-		-DUSE_NNPACK=OFF \
-		-DUSE_ROCKSDB=OFF \
-		-DUSE_OPENCV=OFF \
-		-DBUILD_PYTHON=OFF \
-	&& make -j"$(nproc)" install \
-    && ldconfig \
-    && make clean \
-    && cd .. \
-    && rm -rf build
+  cmake .. \
+  -DCMAKE_INSTALL_PREFIX=$DIST_DIR \
+  -DUSE_CUDA=ON \
+  -DUSE_CUDNN=ON \
+  -DUSE_NCCL=1 \
+  -DNCCL_ROOT=/opt/DL/nccl \
+  -DUSE_OBSERVERS=ON \
+  -DBLAS=OpenBLAS \
+  -DBUILD_SHARED_LIBS=1 \
+  -DCUDA_ARCH_NAME=Manual \
+  -DCUDA_ARCH_BIN="35 52 60 61 70" \
+  -DCUDA_ARCH_PTX="61 70" \
+  -DBUILD_CUSTOM_PROTOBUF=OFF \
+  -DUSE_NNPACK=OFF \
+  -DUSE_ROCKSDB=OFF \
+  -DUSE_OPENCV=OFF \
+  -DBUILD_PYTHON=OFF \
+  && make -j"$(nproc)" install \
+  && ldconfig \
+  && make clean \
+  && cd .. \
+  && rm -rf build
 
 ########## GO BINDING INSTALLATION ###################
 ENV PKG github.com/rai-project/go-caffe2
 WORKDIR $GOPATH/src/$PKG
 
 RUN git clone --depth=1 --branch=master https://${PKG}.git . && \
-    dep ensure && \
-    rm -fr vendor/github.com/Sirupsen && \
-    find vendor -type f -exec sed -i 's/Sirupsen/sirupsen/g' {} + && \
-    go build -a -installsuffix cgo -ldflags "-s -w -X ${PKG}/Version=${VERSION} -X ${PKG}/GitCommit=${VCS_REF} -X ${PKG}/BuildDate=${BUILD_DATE}"&& \
-    go install && \
-    rm -fr vendor
+  dep ensure && \
+  rm -fr vendor/github.com/Sirupsen && \
+  find vendor -type f -exec sed -i 's/Sirupsen/sirupsen/g' {} + && \
+  go build -a -installsuffix cgo -ldflags "-s -w -X ${PKG}/Version=${VERSION} -X ${PKG}/GitCommit=${VCS_REF} -X ${PKG}/BuildDate=${BUILD_DATE}"&& \
+  go install && \
+  rm -fr vendor
