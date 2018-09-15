@@ -8,9 +8,10 @@ mkdir -p $CAFFE2_DIST_DIR
 
 cd $CAFFE2_SRC_DIR && git submodule update --init && mkdir -p build && cd build && \
 	cmake .. \
-		 -DUSE_OBSERVERS=ON \
+	  -DUSE_OBSERVERS=ON \
       -DBLAS=OpenBLAS \
-      -DUSE_CUDA=OFF \
+      -DUSE_CUDA=ON \
+      -DUSE_CUDNN=ON \
       -DUSE_NNPACK=OFF \
       -DUSE_ROCKSDB=OFF \
       -DBUILD_PYTHON=OFF \
