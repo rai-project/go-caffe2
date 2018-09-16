@@ -22,6 +22,5 @@ cd $CAFFE2_SRC_DIR && git submodule update --init && mkdir -p build && cd build 
       -DUSE_PROF=ON \
       -DBUILD_CUSTOM_PROTOBUF=OFF \
       -DCMAKE_INSTALL_PREFIX=$CAFFE2_DIST_DIR \
-      -DTORCH_CUDA_ARCH_LIST="3.0 3.5 5.0 5.2 6.0 6.1 7.0" \
 	&& make -j"$(nproc)" install
 
