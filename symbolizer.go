@@ -1,5 +1,5 @@
-// +build linux
+// +build cgo
 
 package caffe2
 
-import _ "github.com/ianlancetaylor/cgosymbolizer"
+import _ "github.com/benesch/cgosymbolizer"
