@@ -56,8 +56,6 @@ static void delete_prof(profile **prof) {
   }
   auto p = *prof;
   p->reset();
-  delete p;
-  *prof = nullptr;
 }
 
 template <class T>
@@ -373,6 +371,7 @@ static char *readProfileImpl(PredictorObject<Context> *predictor) {
     return NULL;
   }
   const auto s = predictor->prof_->read();
+  predictor->prof_->reset();
   const auto cstr = s.c_str();
   return strdup(cstr);
 }
