@@ -54,6 +54,9 @@ func cvtImageTo1DArray(src image.Image, mean []float32) ([]float32, error) {
 		}
 	}
 
+	return res, nil
+}
+
 func main() {
 	dir, _ := filepath.Abs("../tmp")
 	graph := filepath.Join(dir, "predict_net.pb")
