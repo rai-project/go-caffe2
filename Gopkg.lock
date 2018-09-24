@@ -598,11 +598,12 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:4145fe54b4382c7b0cb9cf03f72b14a797e3bbf5264965345e2eaef2dc9eedd4"
+  digest = "1:4f2e23983604440e0377c160cd83fffcbe8b80b78c11665e9c3c48dc9f098649"
   name = "github.com/rai-project/tracer"
   packages = [
     ".",
     "all",
+    "ctimer",
     "defaults",
     "jaeger",
     "noop",
@@ -907,6 +908,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/GeertJohan/go-sourcepath",
     "github.com/Unknwon/com",
     "github.com/anthonynsimon/bild/imgio",
     "github.com/anthonynsimon/bild/transform",
@@ -919,7 +921,9 @@
     "github.com/rai-project/downloadmanager",
     "github.com/rai-project/logger",
     "github.com/rai-project/nvidia-smi",
+    "github.com/rai-project/tracer",
     "github.com/rai-project/tracer/all",
+    "github.com/rai-project/tracer/ctimer",
     "github.com/sirupsen/logrus",
   ]
   solver-name = "gps-cdcl"
