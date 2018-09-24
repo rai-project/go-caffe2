@@ -99,6 +99,7 @@ struct profile {
 
   error_t reset() {
     std::lock_guard<std::mutex> lock(mut_);
+    std::cout << "resting .... " << "\n";
     for (auto e : entries_) {
       if (e != nullptr) {
         delete e;
