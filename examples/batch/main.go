@@ -35,7 +35,7 @@ var (
 )
 
 // convert go Image to 1-dim array
-func cvtImageTo1DArray(src image.Image, mean float32) ([]float32, error) {
+func cvtImageTo1DArray(src image.Image, mean []float32) ([]float32, error) {
 	if src == nil {
 		return nil, fmt.Errorf("src image nil")
 	}
@@ -48,18 +48,13 @@ func cvtImageTo1DArray(src image.Image, mean float32) ([]float32, error) {
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
 			r, g, b, _ := src.At(x+b.Min.X, y+b.Min.Y).RGBA()
-			res[y*w+x] = float32(b>>8) - mean
-			res[w*h+y*w+x] = float32(g>>8) - mean
-			res[2*w*h+y*w+x] = float32(r>>8) - mean
+			res[y*w+x] = float32(b>>8) - mean[0]
+			res[w*h+y*w+x] = float32(g>>8) - mean[1]
+			res[2*w*h+y*w+x] = float32(r>>8) - mean[2]
 		}
 	}
 
-	return res, nil
-}
-
 func main() {
-	defer C.cuProfilerStop()
-
 	dir, _ := filepath.Abs("../tmp")
 	graph := filepath.Join(dir, "predict_net.pb")
 	weights := filepath.Join(dir, "init_net.pb")
