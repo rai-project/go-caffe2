@@ -21,7 +21,6 @@ import (
 	"github.com/rai-project/config"
 	"github.com/rai-project/dlframework/framework/options"
 	"github.com/rai-project/downloadmanager"
-	caffe "github.com/rai-project/go-caffe"
 	caffe2 "github.com/rai-project/go-caffe2"
 	nvidiasmi "github.com/rai-project/nvidia-smi"
 	"github.com/rai-project/tracer"
@@ -107,11 +106,10 @@ func main() {
 
 	device := options.CPU_DEVICE
 	if nvidiasmi.HasGPU {
-		caffe.SetUseGPU()
 		device = options.CUDA_DEVICE
 
 	} else {
-		caffe.SetUseCPU()
+		panic("no GPU")
 	}
 
 	span, ctx := tracer.StartSpanFromContext(ctx, tracer.FULL_TRACE, "caffe2_batch")
@@ -142,7 +140,7 @@ func main() {
 	*/
 
 	C.cudaProfilerStart()
-	predictions, err := predictor.Predict(input, 10, 3, 227, 227)
+	predictions, err := predictor.Predict(input, batchSize, 3, 227, 227)
 	C.cudaProfilerStop()
 
 	var labels []string
