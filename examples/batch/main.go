@@ -141,9 +141,10 @@ func main() {
 			}
 		}
 	*/
+	predictions, err := predictor.Predict(input, batchSize, 3, 227, 227)
 
 	C.cudaProfilerStart()
-	predictions, err := predictor.Predict(input, batchSize, 3, 227, 227)
+	predictions, err = predictor.Predict(input, batchSize, 3, 227, 227)
 	C.cudaProfilerStop()
 
 	var labels []string
