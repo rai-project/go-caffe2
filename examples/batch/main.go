@@ -24,6 +24,9 @@ import (
 	caffe2 "github.com/rai-project/go-caffe2"
 	nvidiasmi "github.com/rai-project/nvidia-smi"
 	"github.com/rai-project/tracer"
+
+	//_ "github.com/rai-project/tracer/all"
+	_ "github.com/rai-project/tracer/jaeger"
 )
 
 var (
