@@ -60,6 +60,13 @@ func cvtImageTo1DArray(src image.Image, mean []float32) ([]float32, error) {
 }
 
 func main() {
+	for _, ii := range []int{1, 2, 4, 8, 16, 32, 64, 128, 256, 384} {
+		batchSize = ii
+		run()
+	}
+}
+
+func run() {
 	dir, _ := filepath.Abs("../tmp")
 	graph := filepath.Join(dir, "predict_net.pb")
 	weights := filepath.Join(dir, "init_net.pb")
@@ -141,11 +148,9 @@ func main() {
 			}
 		}
 	*/
+	//C.cudaProfilerStart()
 	predictions, err := predictor.Predict(input, batchSize, 3, 227, 227)
-
-	C.cudaProfilerStart()
-	predictions, err = predictor.Predict(input, batchSize, 3, 227, 227)
-	C.cudaProfilerStop()
+	//C.cudaProfilerStop()
 
 	var labels []string
 	f, err := os.Open(features)
@@ -163,8 +168,10 @@ func main() {
 	for i := 0; i < 1; i++ {
 		res := predictions[i*len : (i+1)*len]
 		res.Sort()
-		pp.Println(res[0].Probability)
-		pp.Println(labels[res[0].Index])
+		if false {
+			pp.Println(res[0].Probability)
+			pp.Println(labels[res[0].Index])
+		}
 	}
 
 	// os.RemoveAll(dir)

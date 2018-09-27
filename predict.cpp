@@ -202,7 +202,21 @@ static const char *predictImpl(PredictorObject<Context> *obj, float *imageData,
     net->AttachObserver(std::move(net_ob));
   }
 
+  for (int ii = 0 ; ii < 10; ii++) {
   predictor->run(inputVec, &outputVec);
+  }
+  auto iters = 100;
+  double elapsed = 0;
+  for (int ii = 0 ; ii < iters ; ii++ ) {
+  const auto start = now();
+  predictor->run(inputVec, &outputVec);
+  const auto end = now() ;
+  elapsed += elapsed_time(start, end);
+  }
+  std::cout <<  elapsed / iters << "\n";
+  //std::cout << batch << "," << elapsed / iters << "\n";
+
+
 
   auto len = outputVec[0].size() / batch;
   auto probs = (float *)outputVec[0].raw_data();

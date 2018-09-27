@@ -3,5 +3,10 @@
 
 *.DS_Store
 tmp
-*nvprof
+_obj
+cifar-test-leveldb
+
 single
+*nvprof
+
+batch
