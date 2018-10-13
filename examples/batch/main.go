@@ -1,13 +1,15 @@
 package main
 
+// #cgo linux CFLAGS: -I/usr/local/cuda/include
+// #cgo linux LDFLAGS: -lcuda -lcudart -L/usr/local/cuda/lib64
 // #include <cuda.h>
 // #include <cuda_runtime.h>
 // #include <cuda_profiler_api.h>
-// #include <cudaProfiler.h>
 import "C"
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"image"
 	"os"
@@ -21,17 +23,21 @@ import (
 	"github.com/rai-project/downloadmanager"
 	caffe2 "github.com/rai-project/go-caffe2"
 	nvidiasmi "github.com/rai-project/nvidia-smi"
+	"github.com/rai-project/tracer"
+
+	//_ "github.com/rai-project/tracer/all"
+	_ "github.com/rai-project/tracer/jaeger"
 )
 
 var (
-	batch        = 128
-	graph_url    = "http://s3.amazonaws.com/store.carml.org/models/caffe2/squeezenet_1.0/predict_net.pb"
-	weights_url  = "http://s3.amazonaws.com/store.carml.org/models/caffe2/squeezenet_1.0/init_net.pb"
+	batchSize    = 64
+	graph_url    = "http://s3.amazonaws.com/store.carml.org/models/caffe2/bvlc_alexnet_1.0/predict_net.pb"
+	weights_url  = "http://s3.amazonaws.com/store.carml.org/models/caffe2/bvlc_alexnet_1.0/init_net.pb"
 	features_url = "http://data.dmlc.ml/mxnet/models/imagenet/synset.txt"
 )
 
 // convert go Image to 1-dim array
-func cvtImageTo1DArray(src image.Image, mean float32) ([]float32, error) {
+func cvtImageTo1DArray(src image.Image, mean []float32) ([]float32, error) {
 	if src == nil {
 		return nil, fmt.Errorf("src image nil")
 	}
@@ -44,9 +50,9 @@ func cvtImageTo1DArray(src image.Image, mean float32) ([]float32, error) {
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
 			r, g, b, _ := src.At(x+b.Min.X, y+b.Min.Y).RGBA()
-			res[y*w+x] = float32(b>>8) - mean
-			res[w*h+y*w+x] = float32(g>>8) - mean
-			res[2*w*h+y*w+x] = float32(r>>8) - mean
+			res[y*w+x] = float32(b>>8) - mean[0]
+			res[w*h+y*w+x] = float32(g>>8) - mean[1]
+			res[2*w*h+y*w+x] = float32(r>>8) - mean[2]
 		}
 	}
 
@@ -54,50 +60,49 @@ func cvtImageTo1DArray(src image.Image, mean float32) ([]float32, error) {
 }
 
 func main() {
-	defer C.cuProfilerStop()
-
 	dir, _ := filepath.Abs("../tmp")
 	graph := filepath.Join(dir, "predict_net.pb")
 	weights := filepath.Join(dir, "init_net.pb")
 	features := filepath.Join(dir, "synset.txt")
 
-	if _, err := downloadmanager.DownloadInto(graph_url, dir); err != nil {
-		os.Exit(-1)
+	ctx := context.Background()
+
+	defer tracer.Close()
+
+	if _, err := os.Stat(graph); os.IsNotExist(err) {
+		if _, err := downloadmanager.DownloadInto(graph_url, dir); err != nil {
+			panic(err)
+		}
+	}
+	if _, err := os.Stat(weights); os.IsNotExist(err) {
+
+		if _, err := downloadmanager.DownloadInto(weights_url, dir); err != nil {
+			panic(err)
+		}
+	}
+	if _, err := os.Stat(features); os.IsNotExist(err) {
+
+		if _, err := downloadmanager.DownloadInto(features_url, dir); err != nil {
+			panic(err)
+		}
 	}
 
-	if _, err := downloadmanager.DownloadInto(weights_url, dir); err != nil {
-		os.Exit(-1)
-	}
+	imgDir, _ := filepath.Abs("../_fixtures")
+	imagePath := filepath.Join(imgDir, "platypus.jpg")
 
-	if _, err := downloadmanager.DownloadInto(features_url, dir); err != nil {
-		os.Exit(-1)
+	img, err := imgio.Open(imagePath)
+	if err != nil {
+		panic(err)
 	}
 
 	var input []float32
-	cnt := 0
-
-	imgDir, _ := filepath.Abs("../_fixtures")
-	err := filepath.Walk(imgDir, func(path string, info os.FileInfo, err error) error {
-		if path == imgDir || filepath.Ext(path) != ".jpg" || cnt >= batch {
-			return nil
-		}
-
-		img, err := imgio.Open(path)
-		if err != nil {
-			return err
-		}
+	for ii := 0; ii < batchSize; ii++ {
 		resized := transform.Resize(img, 227, 227, transform.Linear)
-		res, err := cvtImageTo1DArray(resized, 128)
+		res, err := cvtImageTo1DArray(resized, []float32{123, 117, 104})
 		if err != nil {
 			panic(err)
 		}
 		input = append(input, res...)
-		cnt++
-
-		return nil
-	})
-	if err != nil {
-		panic(err)
 	}
 
 	opts := options.New()
@@ -105,8 +110,13 @@ func main() {
 	device := options.CPU_DEVICE
 	if nvidiasmi.HasGPU {
 		device = options.CUDA_DEVICE
+
+	} else {
+		panic("no GPU")
 	}
-	pp.Println("Using device = ", device)
+
+	span, ctx := tracer.StartSpanFromContext(ctx, tracer.FULL_TRACE, "caffe2_batch")
+	defer span.Finish()
 
 	// create predictor
 	predictor, err := caffe2.New(
@@ -114,13 +124,27 @@ func main() {
 		options.Device(device, 0),
 		options.Graph([]byte(graph)),
 		options.Weights([]byte(weights)),
-		options.BatchSize(uint32(batch)))
+		options.BatchSize(uint32(batchSize)))
 	if err != nil {
 		panic(err)
 	}
 	defer predictor.Close()
 
-	predictions, err := predictor.Predict(input, 10, 3, 227, 227)
+	/*
+		if nvidiasmi.HasGPU {
+			cu, err := cupti.New(cupti.Context(ctx))
+			if err == nil {
+				defer func() {
+					cu.Wait()
+					cu.Close()
+				}()
+			}
+		}
+	*/
+
+	C.cudaProfilerStart()
+	predictions, err := predictor.Predict(input, batchSize, 3, 227, 227)
+	C.cudaProfilerStop()
 
 	var labels []string
 	f, err := os.Open(features)
@@ -134,8 +158,8 @@ func main() {
 		labels = append(labels, line)
 	}
 
-	len := len(predictions) / batch
-	for i := 0; i < cnt; i++ {
+	len := len(predictions) / batchSize
+	for i := 0; i < 1; i++ {
 		res := predictions[i*len : (i+1)*len]
 		res.Sort()
 		pp.Println(res[0].Probability)
