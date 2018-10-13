@@ -19,32 +19,31 @@
 #endif  // WITH_CUDA
 
 #include "carml_predictor.h"
-#include "json.hpp"
-#include "predict.hpp"
+#include "predictor.hpp"
 #include "timer.h"
 #include "timer.impl.hpp"
 
 using namespace caffe2;
 using std::string;
-using json = nlohmann::json;
-
-/* Pair (label, confidence) representing a prediction. */
-using Prediction = std::pair<int, float>;
 
 template <typename Context>
 struct PredictorObject {
   PredictorObject(carml::Predictor<Context> *ctx) : ctx_(ctx){};
+
   ~PredictorObject() {
     if (ctx_) {
       delete ctx_;
     }
   }
+
   carml::Predictor<Context> *const &context() { return ctx_; }
 
   carml::Predictor<Context> *ctx_;
   bool profile_enabled_{false};
   std::string profile_name_{""}, profile_metadata_{""};
   profile *prof_{nullptr};
+  int pred_len_;
+  const float *result_{nullptr};
 };
 
 static void delete_prof(profile **prof) {
@@ -173,10 +172,42 @@ PredictorContext NewCaffe2(char *predict_net_file, char *init_net_file,
 #endif
 }
 
+int InitCUDACaffe2() {
+#ifdef WITH_CUDA
+  static bool initialized_cuda = false;
+  if (initialized_cuda) {
+    return true;
+  }
+  initialized_cuda = true;
+  DeviceOption option;
+  option.set_device_type(CUDA);
+  cuda_ctx = new CUDAContext(option);
+
+  return true;
+#else
+  return false;
+#endif
+}
+
+int InitCaffe2(DeviceKind device_kind) {
+  static bool initialized_caffe = false;
+  if (initialized_caffe) {
+    return true;
+  }
+  initialized_caffe = true;
+  int dummy_argc = 1;
+  const char *dummy_name = "go-caffe2";
+  char **dummy_argv = const_cast<char **>(&dummy_name);
+  GlobalInit(&dummy_argc, &dummy_argv);
+  return InitCUDACaffe2();
+}
+
 template <typename Context>
-static const char *predictImpl(PredictorObject<Context> *obj, float *imageData,
-                               const int batch, const int channels,
-                               const int width, const int height) {
+void *predictImpl(PredictorObject<Context> *obj, float *imageData,
+                  const int batch, const int channels, const int width,
+                  const int height) {
+  obj->result_ = nullptr;
+
   const auto image_size = batch * channels * width * height;
   std::vector<float> data;
   data.reserve(image_size);
@@ -206,40 +237,60 @@ static const char *predictImpl(PredictorObject<Context> *obj, float *imageData,
 
   predictor->run(inputVec, &outputVec);
 
-  auto len = outputVec[0].size() / batch;
-  auto probs = (float *)outputVec[0].raw_data();
-
-  std::vector<Prediction> predictions;
-  predictions.reserve(outputVec[0].size());
-  for (int cnt = 0; cnt < batch; cnt++) {
-    for (int idx = 0; idx < len; idx++) {
-      predictions.emplace_back(std::make_pair(idx, probs[cnt * len + idx]));
-    }
-  }
-
-  json preds = json::array();
-  for (const auto prediction : predictions) {
-    preds.push_back(
-        {{"index", prediction.first}, {"probability", prediction.second}});
-  }
-  auto res = strdup(preds.dump().c_str());
-
-  return res;
+  obj->pred_len_ = outputVec[0].size() / batch;
+  obj->result_ = (float *)outputVec[0].raw_data();
 }
 
-const char *PredictCaffe2(PredictorContext pred, float *imageData,
-                          const int batch, const int channels, const int width,
-                          const int height, DeviceKind device_kind) {
+void PredictCaffe2(PredictorContext pred, float *imageData, const int batch,
+                   const int channels, const int width, const int height,
+                   DeviceKind device_kind) {
   if (device_kind == CPU_DEVICE_KIND) {
-    return predictImpl<CPUContext>((PredictorObject<CPUContext> *)pred,
-                                   imageData, batch, channels, width, height);
+    predictImpl<CPUContext>((PredictorObject<CPUContext> *)pred, imageData,
+                            batch, channels, width, height);
   }
 
 #ifdef WITH_CUDA
-  return predictImpl<CUDAContext>((PredictorObject<CUDAContext> *)pred,
-                                  imageData, batch, channels, width, height);
-#else  // WITH_CUDA
-  return NULL;
+  predictImpl<CUDAContext>((PredictorObject<CUDAContext> *)pred, imageData,
+                           batch, channels, width, height);
+#endif
+}
+
+template <typename Context>
+const float *getPredictionsImpl(PredictorObject<Context> *predictor) {
+  if (predictor == nullptr) {
+    return nullptr;
+  }
+
+  return predictor->result_;
+}
+
+const float *GetPredictionsCaffe2(PredictorContext pred,
+                                  DeviceKind device_kind) {
+  if (device_kind == CPU_DEVICE_KIND) {
+    return getPredictionsImpl<CPUContext>((PredictorObject<CPUContext> *)pred);
+  }
+
+#ifdef WITH_CUDA
+  return getPredictionsImpl<CUDAContext>((PredictorObject<CPUContext> *)pred);
+#endif
+}
+
+template <typename Context>
+int getPredLenImpl(PredictorObject<Context> *predictor) {
+  if (predictor == nullptr) {
+    return -1;
+  }
+
+  return predictor->pred_len_;
+}
+
+int GetPredLenCaffe2(PredictorContext pred, DeviceKind device_kind) {
+  if (device_kind == CPU_DEVICE_KIND) {
+    return getPredLenImpl<CPUContext>((PredictorObject<CPUContext> *)pred);
+  }
+
+#ifdef WITH_CUDA
+  return getPredLenImpl<CUDAContext>((PredictorObject<CPUContext> *)pred);
 #endif
 }
 
@@ -272,36 +323,6 @@ void DeleteCaffe2(PredictorContext pred, DeviceKind device_kind) {
 #endif
 }
 
-int InitCUDACaffe2() {
-#ifdef WITH_CUDA
-  static bool initialized_cuda = false;
-  if (initialized_cuda) {
-    return true;
-  }
-  initialized_cuda = true;
-  DeviceOption option;
-  option.set_device_type(CUDA);
-  cuda_ctx = new CUDAContext(option);
-
-  return true;
-#else
-  return false;
-#endif
-}
-
-int InitCaffe2(DeviceKind device_kind) {
-  static bool initialized_caffe = false;
-  if (initialized_caffe) {
-    return true;
-  }
-  initialized_caffe = true;
-  int dummy_argc = 1;
-  const char *dummy_name = "go-caffe2";
-  char **dummy_argv = const_cast<char **>(&dummy_name);
-  GlobalInit(&dummy_argc, &dummy_argv);
-  return InitCUDACaffe2();
-}
-
 template <typename Context>
 static void startProfilingImpl(PredictorObject<Context> *predictor,
                                const char *name, const char *metadata) {
@@ -315,6 +336,7 @@ static void startProfilingImpl(PredictorObject<Context> *predictor,
   predictor->profile_name_ = std::string(name);
   predictor->profile_metadata_ = std::string(metadata);
 }
+
 void StartProfilingCaffe2(PredictorContext pred, const char *name,
                           const char *metadata, DeviceKind device_kind) {
   if (device_kind == CPU_DEVICE_KIND) {

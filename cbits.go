@@ -2,16 +2,17 @@ package caffe2
 
 // #include <stdio.h>
 // #include <stdlib.h>
-// #include "cbits/predict.hpp"
+// #include "cbits/predictor.hpp"
 import "C"
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"unsafe"
 
 	"github.com/rai-project/config"
 	"github.com/rai-project/dlframework/framework/options"
 	"github.com/rai-project/nvidia-smi"
+	"github.com/rai-project/tracer"
 
 	"github.com/Unknwon/com"
 	"github.com/pkg/errors"
@@ -25,8 +26,9 @@ const (
 )
 
 type Predictor struct {
-	device C.DeviceKind
-	ctx    C.PredictorContext
+	ctx     C.PredictorContext
+	options *options.Options
+	device  C.DeviceKind
 }
 
 func init() {
@@ -40,7 +42,10 @@ func init() {
 	})
 }
 
-func New(opts ...options.Option) (*Predictor, error) {
+func New(ctx context.Context, opts ...options.Option) (*Predictor, error) {
+	span, _ := tracer.StartSpanFromContext(ctx, tracer.MODEL_TRACE, "c_new")
+	defer span.Finish()
+
 	options := options.New(opts...)
 	initNetFile := string(options.Graph())
 	if !com.IsFile(initNetFile) {
@@ -64,9 +69,63 @@ func New(opts ...options.Option) (*Predictor, error) {
 		return nil, errors.New("unable to create caffe2 predictor context")
 	}
 	return &Predictor{
-		device: device,
-		ctx:    ctx,
+		ctx:     ctx,
+		options: options,
+		device:  device,
 	}, nil
+}
+
+func (p *Predictor) Predict(ctx context.Context, data []float32, channels int,
+	width int, height int) error {
+	if data == nil || len(data) < 1 {
+		return nil, fmt.Errorf("intput data nil or empty")
+	}
+
+	batchSize := p.options.BatchSize()
+	dataLen := len(data)
+	shapeLen := int(width * height * channels)
+
+	inputCount := dataLen / shapeLen
+	if batchSize > inputCount {
+		padding := make([]float32, (batchSize-inputCount)*shapeLen)
+		data = append(data, padding...)
+	}
+
+	ptr := (*C.float)(unsafe.Pointer(&data[0]))
+
+	predictSpan, _ := tracer.StartSpanFromContext(ctx, tracer.MODEL_TRACE, "c_predict")
+	defer predictSpan.Finish()
+
+	C.PredictCaffe2(p.ctx, ptr, C.int(batchSize), C.int(channels), C.int(width), C.int(height), p.device)
+
+	return nil
+}
+
+func (p *Predictor) ReadPredictedFeatures(ctx context.Context) Predictions {
+	span, _ := tracer.StartSpanFromContext(ctx, tracer.MODEL_TRACE, "read_predicted_features")
+	defer span.Finish()
+
+	batchSize := p.options.BatchSize()
+	predLen := C.GetPredLenCaffe2(p.ctx, p.device)
+	length := batchSize * predLen
+
+	cPredictions := C.GetPredictionsCaffe2(p.ctx, p.device)
+	defer C.free(unsafe.Pointer(cPredictions))
+
+	slice := (*[1 << 30]C.float)(unsafe.Pointer(cPredictions))[:length:length]
+
+	predictions := make([]Prediction, length)
+	for ii := 0; ii < length; ii++ {
+		predictions[ii] = Prediction{
+			Index:       ii % predLen,
+			Probability: float32(slice[ii]),
+		}
+	}
+	return predictions
+}
+
+func (p *Predictor) Close() {
+	C.DeleteCaffe2(p.ctx, p.device)
 }
 
 func (p *Predictor) StartProfiling(name, metadata string) error {
@@ -95,36 +154,4 @@ func (p *Predictor) ReadProfile() (string, error) {
 	}
 	defer C.free(unsafe.Pointer(cstr))
 	return C.GoString(cstr), nil
-}
-
-func (p *Predictor) Predict(data []float32, batchSize int, channels int,
-	width int, height int) (Predictions, error) {
-	// check input
-	if data == nil || len(data) < 1 {
-		return nil, fmt.Errorf("intput data nil or empty")
-	}
-
-	if batchSize != 1 {
-		dataLen := int64(len(data))
-		shapeLen := int64(width * height * channels)
-		inputCount := dataLen / shapeLen
-		padding := make([]float32, (int64(batchSize)-inputCount)*shapeLen)
-		data = append(data, padding...)
-	}
-
-	ptr := (*C.float)(unsafe.Pointer(&data[0]))
-	r := C.PredictCaffe2(p.ctx, ptr, C.int(batchSize), C.int(channels), C.int(width), C.int(height), p.device)
-	defer C.free(unsafe.Pointer(r))
-	js := C.GoString(r)
-
-	predictions := []Prediction{}
-	err := json.Unmarshal([]byte(js), &predictions)
-	if err != nil {
-		return nil, err
-	}
-	return predictions, nil
-}
-
-func (p *Predictor) Close() {
-	C.DeleteCaffe2(p.ctx, p.device)
 }

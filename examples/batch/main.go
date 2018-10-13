@@ -25,12 +25,12 @@ import (
 	nvidiasmi "github.com/rai-project/nvidia-smi"
 	"github.com/rai-project/tracer"
 
-	//_ "github.com/rai-project/tracer/all"
 	_ "github.com/rai-project/tracer/jaeger"
 )
 
 var (
 	batchSize    = 64
+	model        = "bvlc_alexnet"
 	graph_url    = "http://s3.amazonaws.com/store.carml.org/models/caffe2/bvlc_alexnet_1.0/predict_net.pb"
 	weights_url  = "http://s3.amazonaws.com/store.carml.org/models/caffe2/bvlc_alexnet_1.0/init_net.pb"
 	features_url = "http://data.dmlc.ml/mxnet/models/imagenet/synset.txt"
@@ -60,12 +60,13 @@ func cvtImageTo1DArray(src image.Image, mean []float32) ([]float32, error) {
 }
 
 func main() {
+	defer tracer.Close()
+
 	dir, _ := filepath.Abs("../tmp")
+	dir = filepath.Join(dir, model)
 	graph := filepath.Join(dir, "predict_net.pb")
 	weights := filepath.Join(dir, "init_net.pb")
 	features := filepath.Join(dir, "synset.txt")
-
-	ctx := context.Background()
 
 	defer tracer.Close()
 
@@ -110,63 +111,62 @@ func main() {
 	device := options.CPU_DEVICE
 	if nvidiasmi.HasGPU {
 		device = options.CUDA_DEVICE
-
-	} else {
-		panic("no GPU")
 	}
+
+	ctx := context.Background()
 
 	span, ctx := tracer.StartSpanFromContext(ctx, tracer.FULL_TRACE, "caffe2_batch")
 	defer span.Finish()
 
-	// create predictor
 	predictor, err := caffe2.New(
 		options.WithOptions(opts),
 		options.Device(device, 0),
 		options.Graph([]byte(graph)),
 		options.Weights([]byte(weights)),
-		options.BatchSize(uint32(batchSize)))
+		options.BatchSize(batchSize))
 	if err != nil {
 		panic(err)
 	}
 	defer predictor.Close()
 
-	/*
-		if nvidiasmi.HasGPU {
-			cu, err := cupti.New(cupti.Context(ctx))
-			if err == nil {
-				defer func() {
-					cu.Wait()
-					cu.Close()
-				}()
-			}
-		}
-	*/
+	err = predictor.Predict(input, 3, 227, 227)
+	if err != nil {
+		panic(err)
+	}
 
 	C.cudaProfilerStart()
-	predictions, err := predictor.Predict(input, batchSize, 3, 227, 227)
+
+	err = predictor.Predict(input, 3, 227, 227)
+	if err != nil {
+		panic(err)
+	}
+
+	C.cudaDeviceSynchronize()
 	C.cudaProfilerStop()
 
-	var labels []string
-	f, err := os.Open(features)
-	if err != nil {
-		os.Exit(-1)
-	}
-	defer f.Close()
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := scanner.Text()
-		labels = append(labels, line)
-	}
+	if true {
+		var labels []string
+		f, err := os.Open(features)
+		if err != nil {
+			os.Exit(-1)
+		}
+		defer f.Close()
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			line := scanner.Text()
+			labels = append(labels, line)
+		}
 
-	len := len(predictions) / batchSize
-	for i := 0; i < 1; i++ {
-		res := predictions[i*len : (i+1)*len]
-		res.Sort()
-		pp.Println(res[0].Probability)
-		pp.Println(labels[res[0].Index])
+		len := len(predictions) / batchSize
+		for i := 0; i < 1; i++ {
+			res := predictions[i*len : (i+1)*len]
+			res.Sort()
+			pp.Println(res[0].Probability)
+			pp.Println(labels[res[0].Index])
+		}
+	} else {
+		_ = predictions
 	}
-
-	// os.RemoveAll(dir)
 }
 
 func init() {
