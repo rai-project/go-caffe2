@@ -10,10 +10,11 @@
 #include <caffe2/core/net.h>
 #include <caffe2/core/observer.h>
 #include <caffe2/core/operator.h>
-#include <caffe2/core/tensor.h>
 #include <caffe2/utils/proto_utils.h>
 
 #include "caffe2/proto/caffe2.pb.h"
+
+#include <caffe2/core/tensor.h>
 
 #ifdef WITH_CUDA
 #include <caffe2/core/context_gpu.h>
@@ -123,7 +124,7 @@ class Predictor {
   std::string profile_name_{""}, profile_metadata_{""};
 };
 
-void set_net_engine(NetDef *net_def, DeviceType &device_type,
+void set_net_engine(NetDef *net_def, DeviceType device_type,
                     const string &backend) {
   for (int i = 0; i < net_def->op_size(); i++) {
     caffe2::OperatorDef *op_def = net_def->mutable_op(i);
@@ -136,7 +137,7 @@ Predictor::Predictor(NetDef &init_net, NetDef &net, DeviceKind device_kind) {
   if (device_kind == CUDA_DEVICE_KIND) {
 #ifdef WITH_CUDA
     set_net_engine(&init_net, DeviceType::CUDA, "CUDA");
-    set_net_engine(&net, DeviceType::CUDA, "CUDA");
+    set_net_engine(&net,(DeviceType::CUDA), "CUDA");
 #else
     CAFFE_THROW("Not set WITH_CUDA = 1");
 #endif  // WITH_CUDA
@@ -226,7 +227,7 @@ void Predictor::Predict(float *imageData, const int batch, const int channels,
   std::vector<float> data;
   data.reserve(data_size);
   std::copy(imageData, imageData + data_size, data.begin());
-  std::vector<TIndex> dims({batch, channels, width, height});
+  std::vector<int64_t> dims({batch, channels, width, height});
 
   // currently supports one input tensor
   TensorCPU input_tensor;
@@ -245,7 +246,7 @@ void Predictor::Predict(float *imageData, const int batch, const int channels,
     if (device_kind_ == CUDA_DEVICE_KIND) {
 #ifdef WITH_CUDA
       auto *tensor = blob->GetMutable<TensorCUDA>();
-      tensor->CopyFrom(inputVec[ii]);
+      tensor->CopyFrom(*inputVec[ii]);
 #else
       CAFFE_THROW("Not set WITH_CUDA = 1");
 #endif  // WITH_CUDA
@@ -277,8 +278,8 @@ void Predictor::Predict(float *imageData, const int batch, const int channels,
     } else {
       output_tensor = (blob->Get<TensorCPU>()).Clone();
     }
-    outputVec[ii]->ResizeLike(output_tensor);
-    outputVec[ii]->ShareData(output_tensor);
+    outputVec[ii].ResizeLike(output_tensor);
+    outputVec[ii].ShareData(output_tensor);
   }
 
   pred_len_ = outputVec[0].size() / batch;
