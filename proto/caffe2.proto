@@ -28,7 +28,7 @@ message TensorProto {
     UINT16 = 8;  // uint16_t
     INT16 = 9;  // int16_t
     INT64 = 10;  // int64_t
-    FLOAT16 = 12;  // caffe2::__f16, caffe2::float16
+    FLOAT16 = 12;  // at::Half
     DOUBLE = 13;  // double
   }
   optional DataType data_type = 2 [default = FLOAT];
@@ -54,7 +54,7 @@ message TensorProto {
   // workspace in a multi-GPU environment.
   optional DeviceOption device_detail = 8;
   // When loading from chunks this is going to indicate where to put data in the
-  // full array. When not used full data must to be present
+  // full array. When not used full data have to be present
   message Segment {
     required int64 begin = 1;
     required int64 end = 2;
@@ -70,6 +70,7 @@ message QTensorProto {
   required bool is_signed = 5;
   repeated int32 data = 6 [packed = true];
   optional string name = 7;
+  optional TensorProto.DataType data_type = 8 [default = INT32];
 }
 
 // TensorProtos stores multiple TensorProto objects in one single proto. This
@@ -99,33 +100,51 @@ message Argument {
   optional float f = 2;
   optional int64 i = 3;
   optional bytes s = 4;
+  optional NetDef n = 8;
   repeated float floats = 5;
   repeated int64 ints = 6;
   repeated bytes strings = 7;
+  repeated NetDef nets = 9;
 }
 
 // DeviceType that Caffe2 currently supports.
 // Note: if you add a device type, make sure you add the corresponding device
-// line in core/blob_serialization.cc.
-enum DeviceType {
-  CPU = 0;                    // In default, we will use CPU.
-  CUDA = 1;                   // CUDA.
-  MKLDNN = 2;                 // Reserved for explicit MKLDNN
-  ONLY_FOR_TEST = 20901701;   // This device type is only for test.
+// line in the DeviceTypeName() function in caffe2/utils/proto_utils.cc
+// and update ATen/core/DeviceType.h
+enum DeviceTypeProto {
+  PROTO_CPU = 0;                    // In default, we will use CPU.
+  PROTO_CUDA = 1;                   // CUDA.
+  PROTO_MKLDNN = 2;                 // Reserved for explicit MKLDNN
+  PROTO_OPENGL = 3;                 // OpenGL
+  PROTO_OPENCL = 4;                 // OpenCL
+  PROTO_IDEEP = 5;                  // IDEEP.
+  PROTO_HIP = 6;                    // AMD HIP
+  // Change the following number if you add more devices in the code.
+  PROTO_COMPILE_TIME_MAX_DEVICE_TYPES = 7;
+  PROTO_ONLY_FOR_TEST = 20901701;   // This device type is only for test.
 }
 
 // Device-specific options. We do not distinguish DeviceOption protos for
 // different DeviceTypes, so currently all devices share the same DeviceOption
 // proto. Fields that are specific to a device type is ignored if the type does
 // not match.
+// Note: if you add fields to the DeviceOption, make sure you add the
+// corresponding changes to IsSameDevice() function in utils/proto_utils.{h,cc}.
 message DeviceOption {
   // [general] Options that need to be carried out before running the execution.
   // optional DeviceType device_type = 1 [ default = CPU ];
   optional int32 device_type = 1 [ default = 0 ]; // 0 is CPU.
-  // [CUDA specific] the cuda gpu id.
-  optional int32 cuda_gpu_id = 2;
+  // [general] Used together with device_type to identify the exact device
+  optional int32 device_id = 2;
   // [general] The random seed to start the device random number generator with.
   optional uint32 random_seed = 3;
+  // [general] What node this op should execute on.
+  // Used for net transformation purposes. Must be empty at execution time.
+  optional string node_name = 4;
+  // [CPU and Linux specific] NUMA node id
+  optional int32 numa_node_id = 5;
+  // [general] Extra information passed, not used at execution time currently.
+  repeated string extra_info = 6;
 }
 
 // Operator Definition.
@@ -160,6 +179,11 @@ message OperatorDef {
   // is_gradient_op argument is only used as a hint in shape inference
   // and has no runtime significance
   optional bool is_gradient_op = 9 [default = false];
+
+  // debug information associated with the construction of the operator.
+  // This is an optional string with no assumed characteristics as
+  // operators can be constructed in any language.
+  optional string debug_info = 10;
 }
 
 // Network definition.
@@ -263,6 +287,13 @@ message ExecutionStep {
   // if only_once is true, this step will only be executed once. this ONLY takes
   // effect when using should_stop_blob
   optional bool only_once = 10;
+
+  // Whether to create a child workspace for this step.
+  // If yes, the workflow and nets are re-created every time this step is run.
+  optional bool create_workspace = 12;
+
+  // How many copies of the children execution steps to run concurrently.
+  optional int32 num_concurrent_instances = 13;
 }
 
 message PlanDef {
@@ -285,6 +316,10 @@ message BlobProto {
   optional TensorProto tensor = 3;
   optional bytes content = 4;
   optional QTensorProto qtensor = 5;
+  // If blob is not Tensor and is divided into chunks, content_num_chunks
+  // contains number of chunks, into which blob was divided.
+  optional int32 content_num_chunks = 6;
+  optional int32 content_chunk_id = 7;
 }
 
 // Protobuf format to serialize DBReader.

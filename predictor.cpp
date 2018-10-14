@@ -7,56 +7,24 @@
 
 #include <caffe2/core/common.h>
 #include <caffe2/core/init.h>
-#include <caffe2/utils/proto_utils>
-#include "caffe2/proto/caffe2.pb.h"
-
+#include <caffe2/core/net.h>
 #include <caffe2/core/observer.h>
 #include <caffe2/core/operator.h>
+#include <caffe2/core/tensor.h>
+#include <caffe2/utils/proto_utils.h>
+
+#include "caffe2/proto/caffe2.pb.h"
 
 #ifdef WITH_CUDA
 #include <caffe2/core/context_gpu.h>
 #endif  // WITH_CUDA
 
-#include "carml_predictor.h"
 #include "predictor.hpp"
 #include "timer.h"
 #include "timer.impl.hpp"
 
 using namespace caffe2;
 using std::string;
-
-template <typename Context>
-struct Predictor {
-  Predictor(carml::Predictor<Context> *ctx) : ctx_(ctx){};
-
-  ~Predictor() {
-    if (ctx_) {
-      delete ctx_;
-    }
-  }
-
-  carml::Predictor<Context> *const &context() { return ctx_; }
-
-  carml::Predictor<Context> *ctx_;
-  bool profile_enabled_{false};
-  std::string profile_name_{""}, profile_metadata_{""};
-  profile *prof_{nullptr};
-  int pred_len_;
-  const float *result_{nullptr};
-};
-
-static void delete_prof(profile **prof) {
-  if (prof == nullptr) {
-    return;
-  }
-  if (*prof == nullptr) {
-    return;
-  }
-  auto p = *prof;
-  p->reset();
-  delete p;
-  *prof = nullptr;
-}
 
 template <class T>
 class TimeObserver final : public ObserverBase<T> {
@@ -137,16 +105,69 @@ void TimeObserver<OperatorBase>::Stop() {
   p->add(this->entry_);
 }
 
-template <typename Context>
-static PredictorContext newImpl(char *predict_net_file, char *init_net_file) {
-  try {
-    NetDef init_net, predict_net;
-    CAFFE_ENFORCE(ReadProtoFromFile(init_net_file, &init_net));
-    CAFFE_ENFORCE(ReadProtoFromFile(predict_net_file, &predict_net));
+class Predictor {
+ public:
+  Predictor(NetDef &init_net, NetDef &net, DeviceKind device_kind);
+  void Predict(float *imageData, const int batch, const int channels,
+               const int width, const int height);
 
-    auto ctx = new carml::Predictor<Context>(init_net, predict_net);
-    auto p = new Predictor<Context>(ctx);
-    return (PredictorContext)p;
+  DeviceKind device_kind_;
+  Workspace ws_;
+  std::unique_ptr<NetBase> net_;
+  std::vector<string> input_names_;
+  std::vector<string> output_names_;
+  int pred_len_;
+  const float *result_{nullptr};
+  bool profile_enabled_{false};
+  profile *prof_{nullptr};
+  std::string profile_name_{""}, profile_metadata_{""};
+};
+
+void set_net_engine(NetDef *net_def, DeviceType &device_type,
+                    const string &backend) {
+  for (int i = 0; i < net_def->op_size(); i++) {
+    caffe2::OperatorDef *op_def = net_def->mutable_op(i);
+    op_def->set_engine(backend);
+    op_def->mutable_device_option()->set_device_type(TypeToProto(device_type));
+  }
+}
+
+Predictor::Predictor(NetDef &init_net, NetDef &net, DeviceKind device_kind) {
+  if (device_kind == CUDA_DEVICE_KIND) {
+#ifdef WITH_CUDA
+    set_net_engine(&init_net, DeviceType::CUDA, "CUDA");
+    set_net_engine(&net, DeviceType::CUDA, "CUDA");
+#else
+    CAFFE_THROW("Not set WITH_CUDA = 1");
+#endif  // WITH_CUDA
+  } else {
+    set_net_engine(&init_net, DeviceType::CPU, "EIGEN");
+    set_net_engine(&net, DeviceType::CPU, "EIGEN");
+  }
+
+  device_kind_ = device_kind;
+
+  auto init_net_ = CreateNet(init_net, &ws_);
+  CAFFE_ENFORCE(init_net_->Run());
+
+  net_ = CreateNet(net, &ws_);
+
+  for (auto ii = 0; ii < net.external_input_size(); ii++) {
+    input_names_.emplace_back(net.external_input(ii));
+  }
+  for (auto ii = 0; ii < net.external_output_size(); ii++) {
+    output_names_.emplace_back(net.external_output(ii));
+  }
+}
+
+PredictorContext NewCaffe2(char *init_net_file, char *net_file,
+                           DeviceKind device_kind) {
+  try {
+    NetDef init_net, net;
+    CAFFE_ENFORCE(ReadProtoFromFile(init_net_file, &init_net));
+    CAFFE_ENFORCE(ReadProtoFromFile(net_file, &net));
+    auto ctx = new Predictor(init_net, net, device_kind);
+    return (PredictorContext)ctx;
   } catch (const std::invalid_argument &ex) {
     LOG(ERROR) << "exception: " << ex.what();
     errno = EINVAL;
@@ -158,253 +179,205 @@ static PredictorContext newImpl(char *predict_net_file, char *init_net_file) {
   }
 }
 
-PredictorContext NewCaffe2(char *predict_net_file, char *init_net_file,
-                           DeviceKind device_kind) {
-  if (device_kind == CPU_DEVICE_KIND) {
-    return newImpl<CPUContext>(predict_net_file, init_net_file);
-  }
-
 #ifdef WITH_CUDA
-  return newImpl<CUDAContext>(predict_net_file, init_net_file);
-#else  // WITH_CUDA
-  return NULL;
-#endif
-}
+static CUDAContext *cuda_context = nullptr;
+#endif  // WITH_CUDA
 
-int InitCUDACaffe2() {
-#ifdef WITH_CUDA
-  static bool initialized_cuda = false;
-  if (initialized_cuda) {
-    return true;
-  }
-  initialized_cuda = true;
-  DeviceOption option;
-  option.set_device_type(CUDA);
-  cuda_ctx = new CUDAContext(option);
-
-  return true;
-#else
-  return false;
-#endif
-}
-
-int InitCaffe2(DeviceKind device_kind) {
+void InitCaffe2(DeviceKind device_kind) {
   static bool initialized_caffe = false;
   if (initialized_caffe) {
-    return true;
+    return;
   }
   initialized_caffe = true;
   int dummy_argc = 1;
   const char *dummy_name = "go-caffe2";
   char **dummy_argv = const_cast<char **>(&dummy_name);
   GlobalInit(&dummy_argc, &dummy_argv);
-  return InitCUDACaffe2();
+
+  if (device_kind == CUDA_DEVICE_KIND) {
+#ifdef WITH_CUDA
+    static bool initialized_cuda = false;
+    if (initialized_cuda) {
+      return;
+    }
+    initialized_cuda = true;
+    DeviceOption option;
+    option.set_device_type(PROTO_CUDA);
+    cuda_context = new CUDAContext(option);
+    return;
+#else
+    CAFFE_THROW("Not set WITH_CUDA = 1");
+#endif
+  }
 }
 
-template <typename Context>
-void *predictImpl(Predictor<Context> *obj, float *imageData, const int batch,
-                  const int channels, const int width, const int height) {
-  obj->result_ = nullptr;
+void Predictor::Predict(float *imageData, const int batch, const int channels,
+                        const int width, const int height) {
+  result_ = nullptr;
 
-  const auto image_size = batch * channels * width * height;
-  std::vector<float> data;
-  data.reserve(image_size);
-  std::copy(imageData, imageData + image_size, data.begin());
-  std::vector<TIndex> dims({batch, channels, width, height});
-
-  TensorCPU input;
-  input.Resize(dims);
-  input.ShareExternalPointer(data.data());
-
-  auto predictor = obj->context();
-
-  using input_vector_t = typename carml::Predictor<Context>::TensorInputVector;
-  using output_vector_t =
-      typename carml::Predictor<Context>::TensorOutputVector;
-  input_vector_t inputVec{&input};
-  output_vector_t outputVec{};
-
-  auto net = predictor->net();
-
-  if (obj->profile_enabled_) {
+  if (profile_enabled_) {
     unique_ptr<TimeObserver<NetBase>> net_ob =
-        make_unique<TimeObserver<NetBase>>(net, &obj->prof_, obj->profile_name_,
-                                           obj->profile_metadata_);
-    net->AttachObserver(std::move(net_ob));
+        make_unique<TimeObserver<NetBase>>(net_, &prof_, profile_name_,
+                                           profile_metadata_);
+    net_->AttachObserver(std::move(net_ob));
   }
 
-  predictor->run(inputVec, &outputVec);
+  const auto data_size = batch * channels * width * height;
+  std::vector<float> data;
+  data.reserve(data_size);
+  std::copy(imageData, imageData + data_size, data.begin());
+  std::vector<TIndex> dims({batch, channels, width, height});
 
-  obj->pred_len_ = outputVec[0].size() / batch;
-  obj->result_ = (float *)outputVec[0].raw_data();
+  // currently supports one input tensor
+  TensorCPU input_tensor;
+  input_tensor.Resize(dims);
+  input_tensor.ShareExternalPointer(data.data());
+
+  std::vector<TensorCPU *> inputVec{&input_tensor};
+  std::vector<TensorCPU> outputVec{};
+
+  CAFFE_ENFORCE(inputVec.size() <= input_names_.size());
+
+  for (auto ii = 0; ii < inputVec.size(); ii++) {
+    auto name = input_names_[ii];
+    auto *blob = ws_.GetBlob(name);
+    CAFFE_ENFORCE(blob, "Blob: ", name, " does not exist");
+    if (device_kind_ == CUDA_DEVICE_KIND) {
+#ifdef WITH_CUDA
+      auto *tensor = blob->GetMutable<TensorCUDA>();
+      tensor->CopyFrom(inputVec[ii]);
+#else
+      CAFFE_THROW("Not set WITH_CUDA = 1");
+#endif  // WITH_CUDA
+    } else {
+      auto *tensor = blob->GetMutable<TensorCPU>();
+      tensor->ResizeLike(*inputVec[ii]);
+      tensor->ShareData(*inputVec[ii]);
+    }
+  }
+
+  CAFFE_ENFORCE(net_->Run());
+
+  outputVec.resize(output_names_.size());
+  for (auto ii = 0; ii < outputVec.size(); ii++) {
+    auto name = output_names_[ii];
+    auto *blob = ws_.GetBlob(name);
+    CAFFE_ENFORCE(blob, "Blob: ", name, " does not exist");
+    TensorCPU output_tensor;
+
+    if (device_kind_ == CUDA_DEVICE_KIND) {
+#ifdef WITH_CUDA
+      // Copy TensorGPU to TensorCPU
+      // Note: copy constructor no longer permitted
+      // should be using Clone() explicitly
+      output_tensor.CopyFrom(blob->Get<TensorCUDA>().Clone());
+#else
+      CAFFE_THROW("Not set WITH_CUDA = 1");
+#endif  // WITH_CUDA
+    } else {
+      output_tensor = (blob->Get<TensorCPU>()).Clone();
+    }
+    outputVec[ii]->ResizeLike(output_tensor);
+    outputVec[ii]->ShareData(output_tensor);
+  }
+
+  pred_len_ = outputVec[0].size() / batch;
+  result_ = (float *)outputVec[0].raw_data();
 }
 
 void PredictCaffe2(PredictorContext pred, float *imageData, const int batch,
                    const int channels, const int width, const int height,
                    DeviceKind device_kind) {
-  if (device_kind == CPU_DEVICE_KIND) {
-    predictImpl<CPUContext>((Predictor<CPUContext> *)pred, imageData, batch,
-                            channels, width, height);
-  }
-
-#ifdef WITH_CUDA
-  predictImpl<CUDAContext>((Predictor<CUDAContext> *)pred, imageData, batch,
-                           channels, width, height);
-#endif
-}
-
-template <typename Context>
-const float *getPredictionsImpl(Predictor<Context> *predictor) {
+  auto predictor = (Predictor *)pred;
   if (predictor == nullptr) {
-    return nullptr;
+    return;
   }
-
-  return predictor->result_;
+  predictor->Predict(imageData, batch, channels, width, height);
+  return;
 }
 
 const float *GetPredictionsCaffe2(PredictorContext pred,
                                   DeviceKind device_kind) {
-  if (device_kind == CPU_DEVICE_KIND) {
-    return getPredictionsImpl<CPUContext>((Predictor<CPUContext> *)pred);
-  }
-
-#ifdef WITH_CUDA
-  return getPredictionsImpl<CUDAContext>((Predictor<CPUContext> *)pred);
-#endif
-}
-
-template <typename Context>
-int getPredLenImpl(Predictor<Context> *predictor) {
+  auto predictor = (Predictor *)pred;
   if (predictor == nullptr) {
-    return -1;
+    return nullptr;
   }
-
-  return predictor->pred_len_;
+  return predictor->result_;
 }
 
-int GetPredLenCaffe2(PredictorContext pred, DeviceKind device_kind) {
-  if (device_kind == CPU_DEVICE_KIND) {
-    return getPredLenImpl<CPUContext>((Predictor<CPUContext> *)pred);
-  }
-
-#ifdef WITH_CUDA
-  return getPredLenImpl<CUDAContext>((Predictor<CPUContext> *)pred);
-#endif
-}
-
-template <typename Context>
-static void deleteImpl(Predictor<Context> *predictor) {
-  if (predictor) {
-    delete_prof(&predictor->prof_);
-    delete predictor;
-  }
-}
-
-#ifdef WITH_CUDA
-static CUDAContext *cuda_ctx = nullptr;
-#endif  // WITH_CUDA
-
-void DeleteCaffe2(PredictorContext pred, DeviceKind device_kind) {
-  if (device_kind == CPU_DEVICE_KIND) {
-    deleteImpl<CPUContext>((Predictor<CPUContext> *)pred);
+void DeleteCaffe2(PredictorContext pred) {
+  auto predictor = (Predictor *)pred;
+  if (predictor == nullptr) {
     return;
   }
+  if (predictor->prof_) {
+    predictor->prof_->reset();
+    delete predictor->prof_;
+    predictor->prof_ = nullptr;
+  }
+  delete predictor;
+
 #ifdef WITH_CUDA
-  if (cuda_ctx != nullptr) {
-    delete cuda_ctx;
-    cuda_ctx = nullptr;
+  if (cuda_context != nullptr) {
+    delete cuda_context;
+    cuda_context = nullptr;
   }
 #endif  // WITH_CUDA
-
-#ifdef WITH_CUDA
-  deleteImpl<CUDAContext>((Predictor<CUDAContext> *)pred);
-#endif
 }
 
-template <typename Context>
-static void startProfilingImpl(Predictor<Context> *predictor, const char *name,
-                               const char *metadata) {
+void StartProfilingCaffe2(PredictorContext pred, const char *name,
+                          const char *metadata) {
   if (name == nullptr) {
     name = "";
   }
   if (metadata == nullptr) {
     metadata = "";
   }
+  auto predictor = (Predictor *)pred;
   predictor->profile_enabled_ = true;
   predictor->profile_name_ = std::string(name);
   predictor->profile_metadata_ = std::string(metadata);
 }
 
-void StartProfilingCaffe2(PredictorContext pred, const char *name,
-                          const char *metadata, DeviceKind device_kind) {
-  if (device_kind == CPU_DEVICE_KIND) {
-    return startProfilingImpl<CPUContext>((Predictor<CPUContext> *)pred, name,
-                                          metadata);
+void EndProfilingCaffe2(PredictorContext pred) {
+  auto predictor = (Predictor *)pred;
+  if (predictor == nullptr) {
+    return;
   }
-
-#ifdef WITH_CUDA
-  startProfilingImpl<CUDAContext>((Predictor<CUDAContext> *)pred, name,
-                                  metadata);
-#endif
-}
-
-template <typename Context>
-static void endProfilingImpl(Predictor<Context> *predictor) {
-  if (predictor && predictor->prof_) {
+  if (predictor->prof_) {
     predictor->prof_->end();
   }
 }
 
-void EndProfilingCaffe2(PredictorContext pred, DeviceKind device_kind) {
-  if (device_kind == CPU_DEVICE_KIND) {
-    endProfilingImpl<CPUContext>((Predictor<CPUContext> *)pred);
+void DisableProfilingCaffe2(PredictorContext pred) {
+  auto predictor = (Predictor *)pred;
+  if (predictor == nullptr) {
     return;
   }
-
-#ifdef WITH_CUDA
-  endProfilingImpl<CUDAContext>((Predictor<CUDAContext> *)pred);
-#endif
-}
-
-template <typename Context>
-static void disableProfilingImpl(Predictor<Context> *predictor) {
-  if (!predictor || !predictor->prof_) {
-    return;
+  if (predictor->prof_) {
+    predictor->prof_->reset();
+    predictor->profile_name_ = std::string("");
+    predictor->profile_metadata_ = std::string("");
   }
-  delete_prof(&predictor->prof_);
-  predictor->profile_name_ = std::string("");
-  predictor->profile_metadata_ = std::string("");
 }
 
-void DisableProfilingCaffe2(PredictorContext pred, DeviceKind device_kind) {
-  if (device_kind == CPU_DEVICE_KIND) {
-    disableProfilingImpl<CPUContext>((Predictor<CPUContext> *)pred);
-    return;
+char *ReadProfileCaffe2(PredictorContext pred) {
+  auto predictor = (Predictor *)pred;
+  if (predictor == nullptr) {
+    return strdup("");
   }
-
-#ifdef WITH_CUDA
-  disableProfilingImpl<CUDAContext>((Predictor<CUDAContext> *)pred);
-#endif
-}
-
-template <typename Context>
-static char *readProfileImpl(Predictor<Context> *predictor) {
-  if (!predictor || !predictor->prof_) {
-    return NULL;
+  if (predictor->prof_ == nullptr) {
+    return strdup("");
   }
   const auto s = predictor->prof_->read();
   const auto cstr = s.c_str();
   return strdup(cstr);
 }
 
-char *ReadProfileCaffe2(PredictorContext pred, DeviceKind device_kind) {
-  if (device_kind == CPU_DEVICE_KIND) {
-    return readProfileImpl<CPUContext>((Predictor<CPUContext> *)pred);
+int GetPredLenCaffe2(PredictorContext pred) {
+  auto predictor = (Predictor *)pred;
+  if (predictor == nullptr) {
+    return 0;
   }
-
-#ifdef WITH_CUDA
-  return readProfileImpl<CUDAContext>((Predictor<CUDAContext> *)pred);
-#else  // WITH_CUDA
-  return NULL;
-#endif
+  return predictor->pred_len_;
 }

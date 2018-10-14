@@ -14,9 +14,9 @@ typedef enum { CPU_DEVICE_KIND = 0, CUDA_DEVICE_KIND = 1 } DeviceKind;
 PredictorContext NewCaffe2(char *predict_net_file, char *init_net_file,
                            DeviceKind device);
 
-int InitCaffe2(DeviceKind device);
+// int InitCaffe2(DeviceKind device);
 
-int InitCUDACaffe2();
+void InitCaffe2(DeviceKind device_kind);
 
 void PredictCaffe2(PredictorContext pred, float *imageData, const int batch,
                    const int channels, const int width, const int height,

@@ -23,11 +23,9 @@
 
 namespace carml {
 using namespace caffe2;
-template <typename TargetDev>
-class Predictor {
+<typename ContextType> class Predictor {
  public:
-  using TargetDevice = TargetDev;
-  using TensorDevice = Tensor<TargetDevice>;
+  using TensorDevice = Tensor<ContextType>;
   using TensorInputVector = std::vector<TensorCPU*>;
   using TensorOutputVector = std::vector<TensorCPU>;
   // using TensorVector = std::vector<TensorCPU*>;
@@ -35,7 +33,7 @@ class Predictor {
   // in `::run`
   Predictor(NetDef& init_net, NetDef& run_net) {
 #ifdef WITH_CUDA
-    if (std::is_same<TargetDevice, CUDAContext>::value) {
+    if (std::is_same<ContextType, CUDAContext>::value) {
       init_net.mutable_device_option()->set_device_type(CUDA);
       run_net.mutable_device_option()->set_device_type(CUDA);
       for (int i = 0; i < run_net.op_size(); i++) {
@@ -104,7 +102,7 @@ class Predictor {
   void enforceIsTensor(Workspace* ws, const std::string& name) {
     auto blob = ws->GetBlob(name);
     CAFFE_ENFORCE(blob, "Blob does not exist: ", name);
-    CAFFE_ENFORCE(blob->template IsType<TensorDevice>(),
+    CAFFE_ENFORCE(blob->IsType<TensorDevice>(),
                   "Blob is not a CPU Tensor: ", name);
   }
 
@@ -114,10 +112,10 @@ class Predictor {
     auto* blob = ws->GetBlob(name);
     CAFFE_ENFORCE(blob, "Blob: ", name, " does not exist");
 #ifdef WITH_CUDA
-    auto* tensor = blob->template GetMutable<TensorDevice>();
+    auto* tensor = blob->GetMutable<TensorDevice>();
     tensor->CopyFrom(*input);
 #else
-    auto* tensor = blob->template GetMutable<TensorCPU>();
+    auto* tensor = blob->GetMutable<TensorCPU>();
     tensor->ResizeLike(*input);
     tensor->ShareData(*input);
 #endif  // WITH_CUDA
