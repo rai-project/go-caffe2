@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/rai-project/config"
 	"github.com/rai-project/dlframework/framework/options"
 	"github.com/rai-project/nvidia-smi"
 	"github.com/rai-project/tracer"
@@ -28,18 +27,6 @@ const (
 type Predictor struct {
 	ctx     C.PredictorContext
 	options *options.Options
-	device  C.DeviceKind
-}
-
-func init() {
-	config.AfterInit(func() {
-		var device C.DeviceKind = C.CPU_DEVICE_KIND
-		nvidiasmi.Wait()
-		if nvidiasmi.HasGPU {
-			device = C.CUDA_DEVICE_KIND
-		}
-		C.InitCaffe2(device)
-	})
 }
 
 func New(ctx context.Context, opts ...options.Option) (*Predictor, error) {
@@ -64,6 +51,8 @@ func New(ctx context.Context, opts ...options.Option) (*Predictor, error) {
 		device = C.DeviceKind(CUDADevice)
 	}
 
+	C.InitCaffe2(device)
+
 	ctx := C.NewCaffe2(C.CString(initNetFile), C.CString(predictNetFile), device)
 	if ctx == nil {
 		return nil, errors.New("unable to create caffe2 predictor context")
@@ -71,7 +60,6 @@ func New(ctx context.Context, opts ...options.Option) (*Predictor, error) {
 	return &Predictor{
 		ctx:     ctx,
 		options: options,
-		device:  device,
 	}, nil
 }
 
@@ -96,7 +84,7 @@ func (p *Predictor) Predict(ctx context.Context, data []float32, channels int,
 	predictSpan, _ := tracer.StartSpanFromContext(ctx, tracer.MODEL_TRACE, "c_predict")
 	defer predictSpan.Finish()
 
-	C.PredictCaffe2(p.ctx, ptr, C.int(batchSize), C.int(channels), C.int(width), C.int(height), p.device)
+	C.PredictCaffe2(p.ctx, ptr, C.int(batchSize), C.int(channels), C.int(width), C.int(height))
 
 	return nil
 }
@@ -106,10 +94,10 @@ func (p *Predictor) ReadPredictedFeatures(ctx context.Context) Predictions {
 	defer span.Finish()
 
 	batchSize := p.options.BatchSize()
-	predLen := C.GetPredLenCaffe2(p.ctx, p.device)
+	predLen := C.GetPredLenCaffe2(p.ctx)
 	length := batchSize * predLen
 
-	cPredictions := C.GetPredictionsCaffe2(p.ctx, p.device)
+	cPredictions := C.GetPredictionsCaffe2(p.ctx)
 	defer C.free(unsafe.Pointer(cPredictions))
 
 	slice := (*[1 << 30]C.float)(unsafe.Pointer(cPredictions))[:length:length]
@@ -125,7 +113,7 @@ func (p *Predictor) ReadPredictedFeatures(ctx context.Context) Predictions {
 }
 
 func (p *Predictor) Close() {
-	C.DeleteCaffe2(p.ctx, p.device)
+	C.DeleteCaffe2(p.ctx)
 }
 
 func (p *Predictor) StartProfiling(name, metadata string) error {
@@ -133,22 +121,22 @@ func (p *Predictor) StartProfiling(name, metadata string) error {
 	cmetadata := C.CString(metadata)
 	defer C.free(unsafe.Pointer(cname))
 	defer C.free(unsafe.Pointer(cmetadata))
-	C.StartProfilingCaffe2(p.ctx, cname, cmetadata, p.device)
+	C.StartProfilingCaffe2(p.ctx, cname, cmetadata)
 	return nil
 }
 
 func (p *Predictor) EndProfiling() error {
-	C.EndProfilingCaffe2(p.ctx, p.device)
+	C.EndProfilingCaffe2(p.ctx)
 	return nil
 }
 
 func (p *Predictor) DisableProfiling() error {
-	C.DisableProfilingCaffe2(p.ctx, p.device)
+	C.DisableProfilingCaffe2(p.ctx)
 	return nil
 }
 
 func (p *Predictor) ReadProfile() (string, error) {
-	cstr := C.ReadProfileCaffe2(p.ctx, p.device)
+	cstr := C.ReadProfileCaffe2(p.ctx)
 	if cstr == nil {
 		return "", errors.New("failed to read nil profile")
 	}
