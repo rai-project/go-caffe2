@@ -218,7 +218,7 @@ void Predictor::Predict(float *imageData, const int batch, const int channels,
 
   if (profile_enabled_) {
     unique_ptr<TimeObserver<NetBase>> net_ob =
-        make_unique<TimeObserver<NetBase>>(net_, &prof_, profile_name_,
+        make_unique<TimeObserver<NetBase>>(net_.get(), &prof_, profile_name_,
                                            profile_metadata_);
     net_->AttachObserver(std::move(net_ob));
   }
