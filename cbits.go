@@ -53,12 +53,11 @@ func New(ctx context.Context, opts ...options.Option) (*Predictor, error) {
 
 	C.InitCaffe2(device)
 
-	ctx := C.NewCaffe2(C.CString(initNetFile), C.CString(predictNetFile), device)
-	if ctx == nil {
-		return nil, errors.New("unable to create caffe2 predictor context")
-	}
 	return &Predictor{
-		ctx:     ctx,
+		ctx: C.NewCaffe2(C.CString(initNetFile),
+			C.CString(predictNetFile),
+			device,
+		),
 		options: options,
 	}, nil
 }
@@ -66,7 +65,7 @@ func New(ctx context.Context, opts ...options.Option) (*Predictor, error) {
 func (p *Predictor) Predict(ctx context.Context, data []float32, channels int,
 	width int, height int) error {
 	if data == nil || len(data) < 1 {
-		return nil, fmt.Errorf("intput data nil or empty")
+		return fmt.Errorf("intput data nil or empty")
 	}
 
 	batchSize := p.options.BatchSize()
@@ -94,7 +93,7 @@ func (p *Predictor) ReadPredictedFeatures(ctx context.Context) Predictions {
 	defer span.Finish()
 
 	batchSize := p.options.BatchSize()
-	predLen := C.GetPredLenCaffe2(p.ctx)
+	predLen := int(C.GetPredLenCaffe2(p.ctx))
 	length := batchSize * predLen
 
 	cPredictions := C.GetPredictionsCaffe2(p.ctx)

@@ -25,7 +25,6 @@ import (
 	nvidiasmi "github.com/rai-project/nvidia-smi"
 	"github.com/rai-project/tracer"
 
-	"github.com/rai-project/tracer/ctimer"
 	_ "github.com/rai-project/tracer/jaeger"
 )
 
@@ -120,6 +119,7 @@ func main() {
 	defer span.Finish()
 
 	predictor, err := caffe2.New(
+		ctx,
 		options.WithOptions(opts),
 		options.Device(device, 0),
 		options.Graph([]byte(graph)),
@@ -130,35 +130,20 @@ func main() {
 	}
 	defer predictor.Close()
 
-	err = predictor.Predict(ctx, input)
-	if err != nil {
-		panic(err)
-	}
-	predictor.StartProfiling("predict", "")
-
-	err = predictor.Predict(input, 3, 227, 227)
+	err = predictor.Predict(ctx, input, 3, 227, 227)
 	if err != nil {
 		panic(err)
 	}
 
-	predictor.EndProfiling()
+	C.cudaProfilerStart()
 
-	if nvidiasmi.HasGPU {
-		cu.Wait()
-		cu.Close()
-	}
-
-	profBuffer, err := predictor.ReadProfile()
+	err = predictor.Predict(ctx, input, 3, 227, 227)
 	if err != nil {
 		panic(err)
 	}
-	predictor.DisableProfiling()
 
-	t, err := ctimer.New(profBuffer)
-	if err != nil {
-		panic(err)
-	}
-	t.Publish(ctx)
+	C.cudaDeviceSynchronize()
+	C.cudaProfilerStop()
 
 	predictions := predictor.ReadPredictedFeatures(ctx)
 

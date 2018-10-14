@@ -287,8 +287,7 @@ void Predictor::Predict(float *imageData, const int batch, const int channels,
 }
 
 void PredictCaffe2(PredictorContext pred, float *imageData, const int batch,
-                   const int channels, const int width, const int height,
-                   DeviceKind device_kind) {
+                   const int channels, const int width, const int height) {
   auto predictor = (Predictor *)pred;
   if (predictor == nullptr) {
     return;
@@ -297,8 +296,7 @@ void PredictCaffe2(PredictorContext pred, float *imageData, const int batch,
   return;
 }
 
-const float *GetPredictionsCaffe2(PredictorContext pred,
-                                  DeviceKind device_kind) {
+const float *GetPredictionsCaffe2(PredictorContext pred) {
   auto predictor = (Predictor *)pred;
   if (predictor == nullptr) {
     return nullptr;
