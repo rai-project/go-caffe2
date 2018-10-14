@@ -22,9 +22,11 @@ import (
 	"github.com/rai-project/dlframework/framework/options"
 	"github.com/rai-project/downloadmanager"
 	caffe2 "github.com/rai-project/go-caffe2"
+	cupti "github.com/rai-project/go-cupti"
 	nvidiasmi "github.com/rai-project/nvidia-smi"
 	"github.com/rai-project/tracer"
 
+	"github.com/rai-project/tracer/ctimer"
 	_ "github.com/rai-project/tracer/jaeger"
 )
 
@@ -119,6 +121,7 @@ func main() {
 	defer span.Finish()
 
 	predictor, err := caffe2.New(
+		ctx,
 		options.WithOptions(opts),
 		options.Device(device, 0),
 		options.Graph([]byte(graph)),
@@ -129,20 +132,46 @@ func main() {
 	}
 	defer predictor.Close()
 
-	err = predictor.Predict(input, 3, 227, 227)
+	err = predictor.Predict(ctx, input, 3, 227, 227)
 	if err != nil {
 		panic(err)
 	}
 
-	C.cudaProfilerStart()
+	var cu *cupti.CUPTI
+	if nvidiasmi.HasGPU {
+		cu, err = cupti.New(cupti.Context(ctx))
+		if err != nil {
+			panic(err)
+		}
+	}
 
-	err = predictor.Predict(input, 3, 227, 227)
+	predictor.StartProfiling("predict", "")
+
+	err = predictor.Predict(ctx, input, 3, 227, 227)
 	if err != nil {
 		panic(err)
 	}
 
-	C.cudaDeviceSynchronize()
-	C.cudaProfilerStop()
+	predictor.EndProfiling()
+
+	if nvidiasmi.HasGPU {
+		cu.Wait()
+		cu.Close()
+	}
+
+	profBuffer, err := predictor.ReadProfile()
+	if err != nil {
+		panic(err)
+	}
+	predictor.DisableProfiling()
+
+	t, err := ctimer.New(profBuffer)
+	if err != nil {
+		panic(err)
+	}
+	t.Publish(ctx)
+
+	predictions := predictor.ReadPredictedFeatures(ctx)
 
 	if true {
 		var labels []string
