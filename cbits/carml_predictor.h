@@ -28,8 +28,7 @@ class Predictor {
  public:
   using TargetDevice = TargetDev;
   using TensorDevice = Tensor<TargetDevice>;
-  using TensorDeviceVector = std::vector<TensorDevice*>;
-  using TensorCPUVector = std::vector<TensorCPU*>;
+  using TensorInputVector = std::vector<TensorCPU*>;
   using TensorOutputVector = std::vector<TensorCPU>;
   // using TensorVector = std::vector<TensorCPU*>;
   // Runs the `init_net` once, then saves the `run_net` to be executed
@@ -41,7 +40,7 @@ class Predictor {
       run_net.mutable_device_option()->set_device_type(CUDA);
       for (int i = 0; i < run_net.op_size(); i++) {
         caffe2::OperatorDef* op_def = run_net.mutable_op(i);
-        op_def->set_engine("CUDNN");
+        op_def->set_engine("CUDA");
       }
     }
 #endif  // WITH_CUDA
@@ -72,7 +71,7 @@ class Predictor {
 
   // Returns true on success
 
-  bool run(const TensorCPUVector& inputs, TensorOutputVector* outputs) {
+  bool run(const TensorInputVector& inputs, TensorOutputVector* outputs) {
     CAFFE_ENFORCE(inputs.size() <= input_names_.size());
 
     for (auto ii = 0; ii < inputs.size(); ii++) {
