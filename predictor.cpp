@@ -24,6 +24,12 @@
 #include "timer.h"
 #include "timer.impl.hpp"
 
+#if 1
+#define DEBUG_STMT std ::cout << __func__ << "  " << __LINE__ << "\n";
+#else
+#define DEBUG_STMT
+#endif
+
 using namespace caffe2;
 using std::string;
 
@@ -129,6 +135,7 @@ void set_net_engine(NetDef *net_def, DeviceType device_type,
   for (int i = 0; i < net_def->op_size(); i++) {
     caffe2::OperatorDef *op_def = net_def->mutable_op(i);
     op_def->set_engine(backend);
+    std::cout<<"device type ="<< TypeToProto(device_type)<<"\n";
     op_def->mutable_device_option()->set_device_type(TypeToProto(device_type));
   }
 }
@@ -136,8 +143,11 @@ void set_net_engine(NetDef *net_def, DeviceType device_type,
 Predictor::Predictor(NetDef &init_net, NetDef &net, DeviceKind device_kind) {
   if (device_kind == CUDA_DEVICE_KIND) {
 #ifdef WITH_CUDA
+      DEBUG_STMT
     set_net_engine(&init_net, DeviceType::CUDA, "CUDA");
+      DEBUG_STMT
     set_net_engine(&net,(DeviceType::CUDA), "CUDA");
+      DEBUG_STMT
 #else
     CAFFE_THROW("Not set WITH_CUDA = 1");
 #endif  // WITH_CUDA
@@ -147,18 +157,24 @@ Predictor::Predictor(NetDef &init_net, NetDef &net, DeviceKind device_kind) {
   }
 
   device_kind_ = device_kind;
+DEBUG_STMT
 
   auto init_net_ = CreateNet(init_net, &ws_);
+      DEBUG_STMT
   CAFFE_ENFORCE(init_net_->Run());
 
+      DEBUG_STMT
   net_ = CreateNet(net, &ws_);
 
+      DEBUG_STMT
   for (auto ii = 0; ii < net.external_input_size(); ii++) {
     input_names_.emplace_back(net.external_input(ii));
   }
+      DEBUG_STMT
   for (auto ii = 0; ii < net.external_output_size(); ii++) {
     output_names_.emplace_back(net.external_output(ii));
   }
+      DEBUG_STMT
 }
 
 PredictorContext NewCaffe2(char *init_net_file, char *net_file,
@@ -332,6 +348,8 @@ void StartProfilingCaffe2(PredictorContext pred, const char *name,
   if (metadata == nullptr) {
     metadata = "";
   }
+  DEBUG_STMT
+
   auto predictor = (Predictor *)pred;
   predictor->profile_enabled_ = true;
   predictor->profile_name_ = std::string(name);
