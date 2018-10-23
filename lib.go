@@ -1,6 +1,6 @@
 package caffe2
 
-// #cgo LDFLAGS: -lstdc++ -lglog -lboost_system -lcaffe2
+// #cgo LDFLAGS: -lstdc++ -lglog -lboost_system -lcaffe2 -lcaffe2_observers -lc10 -lsleef -lonnx
 // #cgo CXXFLAGS: -std=c++11 -I${SRCDIR}/cbits -O3 -Wall -g
 // #cgo CXXFLAGS: -Wno-sign-compare -Wno-unused-function
 // #cgo CXXFLAGS: -I/opt/pytorch/caffe2/include -I/usr/include/eigen3/ -I/usr/local/include/eigen3/

@@ -149,7 +149,7 @@ Predictor::Predictor(NetDef &init_net, NetDef &net, DeviceKind device_kind) {
     set_net_engine(&net,(DeviceType::CUDA), "CUDA");
       DEBUG_STMT
 #else
-    CAFFE_THROW("Not set WITH_CUDA = 1");
+    throw std::runtime_error("Not set WITH_CUDA = 1");
 #endif  // WITH_CUDA
   } else {
     set_net_engine(&init_net, DeviceType::CPU, "EIGEN");
@@ -161,7 +161,9 @@ DEBUG_STMT
 
   auto init_net_ = CreateNet(init_net, &ws_);
       DEBUG_STMT
-  CAFFE_ENFORCE(init_net_->Run());
+  if (!init_net_->Run()) {
+	  throw std::runtime_error("cannot run init network");
+  }
 
       DEBUG_STMT
   net_ = CreateNet(net, &ws_);
@@ -181,8 +183,12 @@ PredictorContext NewCaffe2(char *init_net_file, char *net_file,
                            DeviceKind device_kind) {
   try {
     NetDef init_net, net;
-    CAFFE_ENFORCE(ReadProtoFromFile(init_net_file, &init_net));
-    CAFFE_ENFORCE(ReadProtoFromFile(net_file, &net));
+    if (!ReadProtoFromFile(init_net_file, &init_net)) {
+		throw std::runtime_error("cannot read init net file");
+	}
+    if (!ReadProtoFromFile(net_file, &net)) {
+		throw std::runtime_error("cannot read net file");
+	}
     auto ctx = new Predictor(init_net, net, device_kind);
     return (PredictorContext)ctx;
   } catch (const std::invalid_argument &ex) {
@@ -223,7 +229,7 @@ void InitCaffe2(DeviceKind device_kind) {
     cuda_context = new CUDAContext(option);
     return;
 #else
-    CAFFE_THROW("Not set WITH_CUDA = 1");
+    throw std::runtime_error("Not set WITH_CUDA = 1");
 #endif
   }
 }
@@ -253,18 +259,22 @@ void Predictor::Predict(float *imageData, const int batch, const int channels,
   std::vector<TensorCPU *> inputVec{&input_tensor};
   std::vector<TensorCPU> outputVec{};
 
-  CAFFE_ENFORCE(inputVec.size() <= input_names_.size());
+  if (inputVec.size() <= input_names_.size()) {
+	  throw std::runtime_error("invalid input vector size");
+  }
 
   for (auto ii = 0; ii < inputVec.size(); ii++) {
     auto name = input_names_[ii];
     auto *blob = ws_.GetBlob(name);
-    CAFFE_ENFORCE(blob, "Blob: ", name, " does not exist");
+	if (blob == nullptr) {
+		throw std::runtime_error("blob does not exist");
+	}
     if (device_kind_ == CUDA_DEVICE_KIND) {
 #ifdef WITH_CUDA
       auto *tensor = blob->GetMutable<TensorCUDA>();
       tensor->CopyFrom(*inputVec[ii]);
 #else
-      CAFFE_THROW("Not set WITH_CUDA = 1");
+	  throw std::runtime_error("Not set WITH_CUDA = 1");
 #endif  // WITH_CUDA
     } else {
       auto *tensor = blob->GetMutable<TensorCPU>();
@@ -273,13 +283,17 @@ void Predictor::Predict(float *imageData, const int batch, const int channels,
     }
   }
 
-  CAFFE_ENFORCE(net_->Run());
+  if (!net_->Run()) {
+	  throw std::runtime_error("invalid run");
+  }
 
   outputVec.resize(output_names_.size());
   for (auto ii = 0; ii < outputVec.size(); ii++) {
     auto name = output_names_[ii];
     auto *blob = ws_.GetBlob(name);
-    CAFFE_ENFORCE(blob, "Blob: ", name, " does not exist");
+	if (blob == nullptr) {
+		throw std::runtime_error("output blob does not exist");
+	}
     TensorCPU output_tensor;
 
     if (device_kind_ == CUDA_DEVICE_KIND) {
@@ -289,7 +303,7 @@ void Predictor::Predict(float *imageData, const int batch, const int channels,
       // should be using Clone() explicitly
       output_tensor.CopyFrom(blob->Get<TensorCUDA>().Clone());
 #else
-      CAFFE_THROW("Not set WITH_CUDA = 1");
+      throw std::runtime_error("Not set WITH_CUDA = 1");
 #endif  // WITH_CUDA
     } else {
       output_tensor = (blob->Get<TensorCPU>()).Clone();
