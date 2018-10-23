@@ -114,13 +114,13 @@ void TimeObserver<OperatorBase>::Stop() {
 
 class Predictor {
  public:
-  Predictor(NetDef &init_net, NetDef &net, DeviceKind device_kind);
+  Predictor(NetDef *init_net, NetDef *net_def, DeviceKind device_kind);
   void Predict(float *imageData, const int batch, const int channels,
                const int width, const int height);
 
   DeviceKind device_kind_;
-  Workspace ws_;
-  std::unique_ptr<NetBase> net_;
+  std::shared_ptr<Workspace> ws_;
+  NetBase * net_;
   std::vector<string> input_names_;
   std::vector<string> output_names_;
   int pred_len_;
@@ -140,27 +140,29 @@ void set_net_engine(NetDef *net_def, DeviceType device_type,
   }
 }
 
-Predictor::Predictor(NetDef &init_net, NetDef &net, DeviceKind device_kind) {
+Predictor::Predictor(NetDef *init_net, NetDef *net_def, DeviceKind device_kind) {
+	ws_ = std::make_shared<Workspace>(new Workspace());
   if (device_kind == CUDA_DEVICE_KIND) {
 #ifdef WITH_CUDA
       DEBUG_STMT
-    set_net_engine(&init_net, DeviceType::CUDA, "CUDA");
-      DEBUG_STMT
-    set_net_engine(&net,(DeviceType::CUDA), "CUDA");
-      DEBUG_STMT
+		   for (int i = 0; i < init_net->op_size(); i++) {
+      caffe2::OperatorDef* op_def = init_net->mutable_op(i);
+      op_def->set_engine("CUDA");
+    }
+    set_net_engine(net_def,DeviceType::CUDA, "CUDA");
 #else
     throw std::runtime_error("Not set WITH_CUDA = 1");
 #endif  // WITH_CUDA
   } else {
-    set_net_engine(&init_net, DeviceType::CPU, "EIGEN");
-    set_net_engine(&net, DeviceType::CPU, "EIGEN");
+    set_net_engine(init_net, DeviceType::CPU, "EIGEN");
+    set_net_engine(net_def, DeviceType::CPU, "EIGEN");
   }
 
   device_kind_ = device_kind;
 DEBUG_STMT
-
+	ws_->RunNetOnce(*init_net);
 #if 0
-  auto init_net_ = CreateNet(init_net, &ws_);
+  auto init_net_ = ws_.CreateNet(init_net);
       DEBUG_STMT
   if (!init_net_->Run()) {
 	  throw std::runtime_error("cannot run init network");
@@ -168,15 +170,18 @@ DEBUG_STMT
 #endif
 
       DEBUG_STMT
-  net_ = CreateNet(net, &ws_);
+		  if (!net_def->has_name()) {
+    net_def->set_name("go-caffe2");
+  }
+  net_ = ws_->CreateNet(*net_def);
 
       DEBUG_STMT
-  for (auto ii = 0; ii < net.external_input_size(); ii++) {
-    input_names_.emplace_back(net.external_input(ii));
+  for (auto ii = 0; ii < net_def->external_input_size(); ii++) {
+    input_names_.emplace_back(net_def->external_input(ii));
   }
       DEBUG_STMT
-  for (auto ii = 0; ii < net.external_output_size(); ii++) {
-    output_names_.emplace_back(net.external_output(ii));
+  for (auto ii = 0; ii < net_def->external_output_size(); ii++) {
+    output_names_.emplace_back(net_def->external_output(ii));
   }
       DEBUG_STMT
 }
@@ -188,13 +193,10 @@ PredictorContext NewCaffe2(char *init_net_file, char *net_file,
     if (!ReadProtoFromFile(init_net_file, &init_net)) {
 		throw std::runtime_error("cannot read init net file");
 	}
-      DEBUG_STMT
     if (!ReadProtoFromFile(net_file, &net)) {
 		throw std::runtime_error("cannot read net file");
 	}     
-	  DEBUG_STMT
-    auto ctx = new Predictor(init_net, net, device_kind);
-      DEBUG_STMT
+    auto ctx = new Predictor(&init_net, &net, device_kind);
     return (PredictorContext)ctx;
   } catch (const std::invalid_argument &ex) {
     LOG(ERROR) << "exception: " << ex.what();
@@ -242,35 +244,36 @@ void InitCaffe2(DeviceKind device_kind) {
 void Predictor::Predict(float *imageData, const int batch, const int channels,
                         const int width, const int height) {
   result_ = nullptr;
-
+      DEBUG_STMT
   if (profile_enabled_) {
     unique_ptr<TimeObserver<NetBase>> net_ob =
-        make_unique<TimeObserver<NetBase>>(net_.get(), &prof_, profile_name_,
+        make_unique<TimeObserver<NetBase>>(net_, &prof_, profile_name_,
                                            profile_metadata_);
     net_->AttachObserver(std::move(net_ob));
   }
-
+      DEBUG_STMT
   const auto data_size = batch * channels * width * height;
   std::vector<float> data;
   data.reserve(data_size);
   std::copy(imageData, imageData + data_size, data.begin());
   std::vector<int64_t> dims({batch, channels, width, height});
-
+      DEBUG_STMT
   // currently supports one input tensor
   TensorCPU input_tensor;
   input_tensor.Resize(dims);
   input_tensor.ShareExternalPointer(data.data());
-
+      DEBUG_STMT
   std::vector<TensorCPU *> inputVec{&input_tensor};
   std::vector<TensorCPU> outputVec{};
 
   if (inputVec.size() <= input_names_.size()) {
 	  throw std::runtime_error("invalid input vector size");
   }
-
+      DEBUG_STMT
   for (auto ii = 0; ii < inputVec.size(); ii++) {
+      DEBUG_STMT
     auto name = input_names_[ii];
-    auto *blob = ws_.GetBlob(name);
+    auto *blob = ws_->GetBlob(name);
 	if (blob == nullptr) {
 		throw std::runtime_error("blob does not exist");
 	}
@@ -287,7 +290,7 @@ void Predictor::Predict(float *imageData, const int batch, const int channels,
       tensor->ShareData(*inputVec[ii]);
     }
   }
-
+      DEBUG_STMT
   if (!net_->Run()) {
 	  throw std::runtime_error("invalid run");
   }
@@ -295,7 +298,7 @@ void Predictor::Predict(float *imageData, const int batch, const int channels,
   outputVec.resize(output_names_.size());
   for (auto ii = 0; ii < outputVec.size(); ii++) {
     auto name = output_names_[ii];
-    auto *blob = ws_.GetBlob(name);
+    auto *blob = ws_->GetBlob(name);
 	if (blob == nullptr) {
 		throw std::runtime_error("output blob does not exist");
 	}
