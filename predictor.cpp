@@ -135,7 +135,7 @@ void set_net_engine(NetDef *net_def, DeviceType device_type,
   for (int i = 0; i < net_def->op_size(); i++) {
     caffe2::OperatorDef *op_def = net_def->mutable_op(i);
     op_def->set_engine(backend);
-    std::cout<<"device type ="<< TypeToProto(device_type)<<"\n";
+    //std::cout<<"device type ="<< TypeToProto(device_type)<<"\n";
     op_def->mutable_device_option()->set_device_type(TypeToProto(device_type));
   }
 }
@@ -159,11 +159,13 @@ Predictor::Predictor(NetDef &init_net, NetDef &net, DeviceKind device_kind) {
   device_kind_ = device_kind;
 DEBUG_STMT
 
+#if 0
   auto init_net_ = CreateNet(init_net, &ws_);
       DEBUG_STMT
   if (!init_net_->Run()) {
 	  throw std::runtime_error("cannot run init network");
   }
+#endif
 
       DEBUG_STMT
   net_ = CreateNet(net, &ws_);
@@ -186,10 +188,13 @@ PredictorContext NewCaffe2(char *init_net_file, char *net_file,
     if (!ReadProtoFromFile(init_net_file, &init_net)) {
 		throw std::runtime_error("cannot read init net file");
 	}
+      DEBUG_STMT
     if (!ReadProtoFromFile(net_file, &net)) {
 		throw std::runtime_error("cannot read net file");
-	}
+	}     
+	  DEBUG_STMT
     auto ctx = new Predictor(init_net, net, device_kind);
+      DEBUG_STMT
     return (PredictorContext)ctx;
   } catch (const std::invalid_argument &ex) {
     LOG(ERROR) << "exception: " << ex.what();
