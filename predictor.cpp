@@ -135,7 +135,7 @@ void set_net_engine(NetDef *net_def, DeviceType device_type,
   for (int i = 0; i < net_def->op_size(); i++) {
     caffe2::OperatorDef *op_def = net_def->mutable_op(i);
     op_def->set_engine(backend);
-    //std::cout<<"device type ="<< TypeToProto(device_type)<<"\n";
+// std::cout<<"device type ="<< TypeToProto(device_type)<<"\n";
     op_def->mutable_device_option()->set_device_type(TypeToProto(device_type));
   }
 }
@@ -147,9 +147,9 @@ Predictor::Predictor(NetDef *init_net, NetDef *net_def, DeviceKind device_kind) 
       DEBUG_STMT
 		   for (int i = 0; i < init_net->op_size(); i++) {
       caffe2::OperatorDef* op_def = init_net->mutable_op(i);
-      op_def->set_engine("CUDA");
+      op_def->set_engine("CUDNN");
     }
-    set_net_engine(net_def,DeviceType::CUDA, "CUDA");
+    set_net_engine(net_def,DeviceType::CUDA, "CUDNN");
 #else
     throw std::runtime_error("Not set WITH_CUDA = 1");
 #endif  // WITH_CUDA
@@ -218,6 +218,9 @@ void InitCaffe2(DeviceKind device_kind) {
   if (initialized_caffe) {
     return;
   }
+
+  caffe2::ClearGlobalNetObservers();
+  caffe2::ShowLogInfoToStderr();
   initialized_caffe = true;
   int dummy_argc = 1;
   const char *dummy_name = "go-caffe2";
