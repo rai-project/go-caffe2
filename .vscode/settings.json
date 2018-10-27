@@ -99,5 +99,6 @@
 		"ratio": "cpp",
 		"system_error": "cpp"
 	},
-	"editor.insertSpaces": true
+	"editor.insertSpaces": true,
+	"cquery.cacheDirectory": "${workspaceFolder}/.vscode/cquery_cached_index/"
 }
