@@ -22,7 +22,7 @@ error_t PredictCaffe2(PredictorContext pred, float *imageData,
                       const char *input_type, const int batch,
                       const int channels, const int width, const int height);
 
-const float *GetPredictionsCaffe2(PredictorContext pred);
+float *GetPredictionsCaffe2(PredictorContext pred);
 
 void DeleteCaffe2(PredictorContext pred);
 

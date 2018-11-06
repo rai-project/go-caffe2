@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"unsafe"
 
+	"github.com/k0kubun/pp"
 	"github.com/rai-project/dlframework/framework/options"
 	"github.com/rai-project/nvidia-smi"
 	"github.com/rai-project/tracer"
@@ -110,6 +111,8 @@ func (p *Predictor) ReadPredictedFeatures(ctx context.Context) Predictions {
 
 	cPredictions := C.GetPredictionsCaffe2(p.ctx)
 	defer C.free(unsafe.Pointer(cPredictions))
+
+	pp.Println(cPredictions)
 
 	slice := (*[1 << 30]C.float)(unsafe.Pointer(cPredictions))[:length:length]
 

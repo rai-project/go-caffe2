@@ -132,7 +132,7 @@ class Predictor {
   std::vector<string> input_names_;
   std::vector<string> output_names_;
   int pred_len_;
-  const float *result_{nullptr};
+  void *result_{nullptr};
   bool profile_enabled_{false};
   profile *prof_{nullptr};
   std::string profile_name_{""}, profile_metadata_{""};
@@ -161,19 +161,26 @@ static std::string get_backend(std::string backend) {
 
 static void set_operator_engine(NetDef *net, DeviceKind device_kind) {
   std::string backend = "";
+  DeviceType device_type;
+
   if (device_kind == CUDA_DEVICE_KIND) {
 #ifdef WITH_CUDA
     backend = get_backend("cuda");
+    device_type = caffe2::CUDA;
 #else
     throw std::runtime_error("Not set WITH_CUDA = 1");
 #endif  // WITH_CUDA
   } else {
     backend = get_backend("eigen");
+    device_type = caffe2::CPU;
   }
+
+  net->mutable_device_option()->set_device_type(TypeToProto(device_type));
 
   for (int i = 0; i < net->op_size(); i++) {
     caffe2::OperatorDef *op_def = net->mutable_op(i);
     op_def->set_engine(backend);
+    op_def->mutable_device_option()->set_device_type(TypeToProto(device_type));
   }
 }
 
@@ -273,7 +280,10 @@ void InitCaffe2(DeviceKind device_kind) {
 void Predictor::Predict(float *imageData, std::string input_type,
                         const int batch, const int channels, const int width,
                         const int height) {
-  result_ = nullptr;
+  if (result_ != nullptr) {
+    free(result_);
+    result_ = nullptr;
+  }
   DEBUG_STMT
   if (profile_enabled_) {
     unique_ptr<TimeObserver<NetBase>> net_ob =
@@ -300,9 +310,7 @@ void Predictor::Predict(float *imageData, std::string input_type,
 #ifdef WITH_CUDA
     Tensor cpu_tensor(dims, caffe2::CPU);
     cpu_tensor.ShareExternalPointer(data.data());
-
     auto tensor = blob->GetMutable<caffe2::TensorCUDA>();
-    tensor->Resize(dims);
     tensor->CopyFrom(cpu_tensor);
 
     if (input_type == "uint8_t") {
@@ -310,7 +318,7 @@ void Predictor::Predict(float *imageData, std::string input_type,
     } else if (input_type == "float") {
       tensor->mutable_data<float>();
     } else {
-      std::runtime_error("Unsupported input type");
+      throw std::runtime_error("Unsupported input type");
     }
 #else
     throw std::runtime_error("Not set WITH_CUDA = 1");
@@ -325,43 +333,57 @@ void Predictor::Predict(float *imageData, std::string input_type,
     } else if (input_type == "float") {
       tensor->mutable_data<float>();
     } else {
-      std::runtime_error("Unsupported input type");
+      throw std::runtime_error("Unsupported input type");
     }
   }
   DEBUG_STMT
   if (!net_->Run()) {
     throw std::runtime_error("invalid run");
   }
+  DEBUG_STMT
 
-  std::vector<TensorCPU> outputVec{};
-
-  outputVec.resize(output_names_.size());
-  for (auto ii = 0; ii < outputVec.size(); ii++) {
-    auto name = output_names_[ii];
-    auto *blob = ws_->GetBlob(name);
-    if (blob == nullptr) {
-      throw std::runtime_error("output blob does not exist");
-    }
-    TensorCPU output_tensor;
-
-    if (device_kind_ == CUDA_DEVICE_KIND) {
-#ifdef WITH_CUDA
-      // Copy TensorGPU to TensorCPU
-      // Note: copy constructor no longer permitted
-      // should be using Clone() explicitly
-      output_tensor.CopyFrom(blob->Get<TensorCUDA>().Clone());
-#else
-      throw std::runtime_error("Not set WITH_CUDA = 1");
-#endif  // WITH_CUDA
-    } else {
-      output_tensor = (blob->Get<TensorCPU>()).Clone();
-    }
-    outputVec[ii].ResizeLike(output_tensor);
-    outputVec[ii].ShareData(output_tensor);
+  auto output_name = output_names_[0];
+  DEBUG_STMT
+  auto *output_blob = ws_->GetBlob(output_name);
+  if (output_blob == nullptr) {
+    throw std::runtime_error("output blob does not exist");
   }
+  DEBUG_STMT
 
-  pred_len_ = outputVec[0].size() / batch;
-  result_ = (float *)outputVec[0].raw_data();
+  // std::cout << "dims = " << dims[0] << ", " << dims[1] << ", " << dims[2]
+  // << ", " << dims[3] << "\n";
+
+  TensorCPU output_tensor;
+
+  if (device_kind_ == CUDA_DEVICE_KIND) {
+#ifdef WITH_CUDA
+    // Copy TensorGPU to TensorCPU
+    // Note: copy constructor no longer permitted
+    // should be using Clone() explicitly
+    DEBUG_STMT
+    auto output = output_blob->Get<TensorCUDA>();
+    output.mutable_data<float>();
+
+    output_tensor = TensorCPU(blob->Get<TensorCUDA>());
+
+    DEBUG_STMT
+#else
+    throw std::runtime_error("Not set WITH_CUDA = 1");
+#endif  // WITH_CUDA
+  } else {
+    output_tensor = output_blob->Get<TensorCPU>();
+  }
+  DEBUG_STMT
+
+  pred_len_ = output_tensor.size() / batch;
+  DEBUG_STMT
+  const size_t output_byte_count =
+      output_tensor.size() * output_tensor.itemsize();
+  std::cout << "output_byte_count = " << output_byte_count << "\n";
+  result_ = (void *)aligned_alloc(64, output_byte_count);
+  DEBUG_STMT
+  memcpy(result_, output_tensor.raw_data(), output_byte_count);
+  DEBUG_STMT
 }
 
 error_t PredictCaffe2(PredictorContext pred, float *imageData,
@@ -382,13 +404,16 @@ error_t PredictCaffe2(PredictorContext pred, float *imageData,
   }
 }
 
-const float *GetPredictionsCaffe2(PredictorContext pred) {
+float *GetPredictionsCaffe2(PredictorContext pred) {
   try {
     auto predictor = (Predictor *)pred;
     if (predictor == nullptr) {
       return nullptr;
     }
-    return predictor->result_;
+    if (predictor->result_ == nullptr) {
+      throw std::runtime_error("expected a non-nil result");
+    }
+    return (float *)predictor->result_;
   } catch (std::exception &ex) {
     LOG(ERROR) << "exception: catch all [ " << ex.what() << "]"
                << "\n";
@@ -401,6 +426,9 @@ void DeleteCaffe2(PredictorContext pred) {
     auto predictor = (Predictor *)pred;
     if (predictor == nullptr) {
       return;
+    }
+    if (predictor->result_ != nullptr) {
+      free(predictor->result_);
     }
     if (predictor->prof_) {
       predictor->prof_->reset();
