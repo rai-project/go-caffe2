@@ -24,14 +24,6 @@
 #include "timer.h"
 #include "timer.impl.hpp"
 
-#include "backward.hpp"
-
-namespace backward {
-
-backward::SignalHandling sh;
-
-}  // namespace backward
-
 using namespace caffe2;
 using std::string;
 
@@ -266,39 +258,30 @@ void Predictor::Predict(float *imageData, std::string input_type,
     result_ = nullptr;
   }
   if (profile_enabled_) {
-    unique_ptr<TimeObserver<NetBase>> net_ob =
-        make_unique<TimeObserver<NetBase>>(net_, &prof_, profile_name_,
-                                           profile_metadata_);
+    auto net_ob = make_unique<TimeObserver<NetBase>>(
+        net_, &prof_, profile_name_, profile_metadata_);
     net_->AttachObserver(std::move(net_ob));
   }
 
   const auto data_size = batch * channels * width * height;
 
-  std::vector<float> data;
-  data.reserve(data_size);
-
+  std::vector<float> data(data_size);
   std::copy(imageData, imageData + data_size, data.begin());
+
   std::vector<int64_t> dims({batch, channels, width, height});
 
-  auto name = input_names_[0];
-  auto *blob = ws_->GetBlob(name);
+  auto input_name = input_names_[0];
+  auto *blob = ws_->GetBlob(input_name);
   if (blob == nullptr) {
-    blob = ws_->CreateBlob(input_names_[0]);
+    blob = ws_->CreateBlob(input_name);
   }
+
   if (device_kind_ == CUDA_DEVICE_KIND) {
 #ifdef WITH_CUDA
     Tensor cpu_tensor(dims, caffe2::CPU);
     cpu_tensor.ShareExternalPointer(data.data());
     auto tensor = blob->GetMutable<caffe2::TensorCUDA>();
     tensor->CopyFrom(cpu_tensor);
-
-    if (input_type == "uint8_t") {
-      tensor->mutable_data<uint8_t>();
-    } else if (input_type == "float") {
-      tensor->mutable_data<float>();
-    } else {
-      throw std::runtime_error("Unsupported input type");
-    }
 #else
     throw std::runtime_error("Not set WITH_CUDA = 1");
 #endif  // WITH_CUDA
@@ -321,7 +304,7 @@ void Predictor::Predict(float *imageData, std::string input_type,
   if (device_kind_ == CUDA_DEVICE_KIND) {
 #ifdef WITH_CUDA
     auto output_tensor = output_blob->Get<caffe2::TensorCUDA>();
-    result_ = (void *)aligned_alloc(64, output_tensor.nbytes());
+    result_ = (void *)malloc(output_tensor.nbytes());
     pred_len_ = output_tensor.size() / batch;
     cuda_context->CopyBytesToCPU(output_tensor.nbytes(),
                                  output_tensor.raw_data(), result_);
@@ -333,7 +316,7 @@ void Predictor::Predict(float *imageData, std::string input_type,
   } else {
     auto output_tensor = output_blob->Get<TensorCPU>();
     pred_len_ = output_tensor.size() / batch;
-    result_ = (void *)aligned_alloc(64, output_tensor.nbytes());
+    result_ = (void *)malloc(output_tensor.nbytes());
     memcpy(result_, output_tensor.raw_data(), output_tensor.nbytes());
   }
 }
@@ -381,6 +364,9 @@ void DeleteCaffe2(PredictorContext pred) {
     }
     if (predictor->ws_ != nullptr) {
       delete predictor->ws_;
+    }
+    if (predictor->result_) {
+      free(predictor->result_);
     }
     if (predictor->prof_) {
       predictor->prof_->reset();
