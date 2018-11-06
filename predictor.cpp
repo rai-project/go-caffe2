@@ -364,14 +364,14 @@ void Predictor::Predict(float *imageData, std::string input_type,
     auto output = output_blob->Get<TensorCUDA>();
     output.mutable_data<float>();
 
-    output_tensor = TensorCPU(blob->Get<TensorCUDA>());
+    output_tensor = TensorCPU(blob->Get<TensorCUDA>()).Clone();
 
     DEBUG_STMT
 #else
     throw std::runtime_error("Not set WITH_CUDA = 1");
 #endif  // WITH_CUDA
   } else {
-    output_tensor = output_blob->Get<TensorCPU>();
+    output_tensor = output_blob->Get<TensorCPU>().Clone();
   }
   DEBUG_STMT
 
