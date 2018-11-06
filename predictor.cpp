@@ -32,12 +32,6 @@ backward::SignalHandling sh;
 
 }  // namespace backward
 
-#if 1
-#define DEBUG_STMT std ::cout << __func__ << "  " << __LINE__ << "\n";
-#else
-#define DEBUG_STMT
-#endif
-
 using namespace caffe2;
 using std::string;
 
@@ -127,7 +121,8 @@ class Predictor {
                const int channels, const int width, const int height);
 
   DeviceKind device_kind_;
-  std::shared_ptr<Workspace> ws_;
+
+  Workspace *ws_{nullptr};
   NetBase *net_;
   std::vector<string> input_names_;
   std::vector<string> output_names_;
@@ -186,35 +181,21 @@ static void set_operator_engine(NetDef *net, DeviceKind device_kind) {
 
 Predictor::Predictor(NetDef *init_net, NetDef *net_def,
                      DeviceKind device_kind) {
-  ws_ = std::make_shared<Workspace>(new Workspace());
-  DEBUG_STMT
+  ws_ = new Workspace();
   device_kind_ = device_kind;
-  DEBUG_STMT
   ws_->RunNetOnce(*init_net);
-  DEBUG_STMT
-#if 0
-  auto init_net_ = ws_.CreateNet(init_net);
-      DEBUG_STMT
-  if (!init_net_->Run()) {
-	  throw std::runtime_error("cannot run init network");
-  }
-#endif
 
-  DEBUG_STMT
   if (!net_def->has_name()) {
     net_def->set_name("go-caffe2");
   }
   net_ = ws_->CreateNet(*net_def);
 
-  DEBUG_STMT
   for (auto ii = 0; ii < net_def->external_input_size(); ii++) {
     input_names_.emplace_back(net_def->external_input(ii));
   }
-  DEBUG_STMT
   for (auto ii = 0; ii < net_def->external_output_size(); ii++) {
     output_names_.emplace_back(net_def->external_output(ii));
   }
-  DEBUG_STMT
 }
 
 PredictorContext NewCaffe2(char *init_net_file, char *net_file,
@@ -284,23 +265,21 @@ void Predictor::Predict(float *imageData, std::string input_type,
     free(result_);
     result_ = nullptr;
   }
-  DEBUG_STMT
   if (profile_enabled_) {
     unique_ptr<TimeObserver<NetBase>> net_ob =
         make_unique<TimeObserver<NetBase>>(net_, &prof_, profile_name_,
                                            profile_metadata_);
     net_->AttachObserver(std::move(net_ob));
   }
-  DEBUG_STMT
+
   const auto data_size = batch * channels * width * height;
+
   std::vector<float> data;
-  DEBUG_STMT
   data.reserve(data_size);
-  DEBUG_STMT
+
   std::copy(imageData, imageData + data_size, data.begin());
   std::vector<int64_t> dims({batch, channels, width, height});
 
-  DEBUG_STMT
   auto name = input_names_[0];
   auto *blob = ws_->GetBlob(name);
   if (blob == nullptr) {
@@ -327,63 +306,36 @@ void Predictor::Predict(float *imageData, std::string input_type,
     auto tensor = BlobGetMutableTensor(blob, caffe2::CPU);
     tensor->Resize(dims);
     tensor->ShareExternalPointer(data.data());
-
-    if (input_type == "uint8_t") {
-      tensor->mutable_data<uint8_t>();
-    } else if (input_type == "float") {
-      tensor->mutable_data<float>();
-    } else {
-      throw std::runtime_error("Unsupported input type");
-    }
   }
-  DEBUG_STMT
+
   if (!net_->Run()) {
     throw std::runtime_error("invalid run");
   }
-  DEBUG_STMT
 
   auto output_name = output_names_[0];
-  DEBUG_STMT
   auto *output_blob = ws_->GetBlob(output_name);
   if (output_blob == nullptr) {
     throw std::runtime_error("output blob does not exist");
   }
-  DEBUG_STMT
-
-  // std::cout << "dims = " << dims[0] << ", " << dims[1] << ", " << dims[2]
-  // << ", " << dims[3] << "\n";
-
-  TensorCPU output_tensor;
 
   if (device_kind_ == CUDA_DEVICE_KIND) {
 #ifdef WITH_CUDA
-    // Copy TensorGPU to TensorCPU
-    // Note: copy constructor no longer permitted
-    // should be using Clone() explicitly
-    DEBUG_STMT
-    auto output = output_blob->Get<TensorCUDA>();
-    output.mutable_data<float>();
-
-    output_tensor = TensorCPU(blob->Get<TensorCUDA>()).Clone();
-
-    DEBUG_STMT
+    auto output_tensor = output_blob->Get<caffe2::TensorCUDA>();
+    result_ = (void *)aligned_alloc(64, output_tensor.nbytes());
+    pred_len_ = output_tensor.size() / batch;
+    cuda_context->CopyBytesToCPU(output_tensor.nbytes(),
+                                 output_tensor.raw_data(), result_);
+    cuda_context->FinishDeviceComputation();
+    return;
 #else
     throw std::runtime_error("Not set WITH_CUDA = 1");
 #endif  // WITH_CUDA
   } else {
-    output_tensor = output_blob->Get<TensorCPU>().Clone();
+    auto output_tensor = output_blob->Get<TensorCPU>();
+    pred_len_ = output_tensor.size() / batch;
+    result_ = (void *)aligned_alloc(64, output_tensor.nbytes());
+    memcpy(result_, output_tensor.raw_data(), output_tensor.nbytes());
   }
-  DEBUG_STMT
-
-  pred_len_ = output_tensor.size() / batch;
-  DEBUG_STMT
-  const size_t output_byte_count =
-      output_tensor.size() * output_tensor.itemsize();
-  std::cout << "output_byte_count = " << output_byte_count << "\n";
-  result_ = (void *)aligned_alloc(64, output_byte_count);
-  DEBUG_STMT
-  memcpy(result_, output_tensor.raw_data(), output_byte_count);
-  DEBUG_STMT
 }
 
 error_t PredictCaffe2(PredictorContext pred, float *imageData,
@@ -427,8 +379,8 @@ void DeleteCaffe2(PredictorContext pred) {
     if (predictor == nullptr) {
       return;
     }
-    if (predictor->result_ != nullptr) {
-      free(predictor->result_);
+    if (predictor->ws_ != nullptr) {
+      delete predictor->ws_;
     }
     if (predictor->prof_) {
       predictor->prof_->reset();
@@ -437,12 +389,6 @@ void DeleteCaffe2(PredictorContext pred) {
     }
     delete predictor;
 
-#ifdef WITH_CUDA
-    if (cuda_context != nullptr) {
-      delete cuda_context;
-      cuda_context = nullptr;
-    }
-#endif  // WITH_CUDA
   } catch (std::exception &ex) {
     LOG(ERROR) << "exception: catch all [ " << ex.what() << "]"
                << "\n";
@@ -462,7 +408,6 @@ void StartProfilingCaffe2(PredictorContext pred, const char *name,
     if (pred == nullptr) {
       return;
     }
-    DEBUG_STMT
 
     auto predictor = (Predictor *)pred;
     predictor->profile_enabled_ = true;
