@@ -24,6 +24,14 @@
 #include "timer.h"
 #include "timer.impl.hpp"
 
+#include "backward.hpp"
+
+namespace backward {
+
+backward::SignalHandling sh;
+
+}  // namespace backward
+
 #if 1
 #define DEBUG_STMT std ::cout << __func__ << "  " << __LINE__ << "\n";
 #else
@@ -115,8 +123,8 @@ void TimeObserver<OperatorBase>::Stop() {
 class Predictor {
  public:
   Predictor(NetDef *init_net, NetDef *net_def, DeviceKind device_kind);
-  void Predict(float *imageData, const int batch, const int channels,
-               const int width, const int height);
+  void Predict(float *imageData, std::string input_type, const int batch,
+               const int channels, const int width, const int height);
 
   DeviceKind device_kind_;
   std::shared_ptr<Workspace> ws_;
@@ -151,21 +159,10 @@ static std::string get_backend(std::string backend) {
   return backend;
 }
 
-static void set_net_engine(NetDef *net_def, DeviceType device_type,
-                           const string &backend) {
-  for (int i = 0; i < net_def->op_size(); i++) {
-    caffe2::OperatorDef *op_def = net_def->mutable_op(i);
-    // op_def->set_engine(backend);
-    // std::cout<<"device type ="<< TypeToProto(device_type)<<"\n";
-    op_def->mutable_device_option()->set_device_type(TypeToProto(device_type));
-  }
-}
-
 static void set_operator_engine(NetDef *net, DeviceKind device_kind) {
   std::string backend = "";
   if (device_kind == CUDA_DEVICE_KIND) {
 #ifdef WITH_CUDA
-    DEBUG_STMT
     backend = get_backend("cuda");
 #else
     throw std::runtime_error("Not set WITH_CUDA = 1");
@@ -183,10 +180,11 @@ static void set_operator_engine(NetDef *net, DeviceKind device_kind) {
 Predictor::Predictor(NetDef *init_net, NetDef *net_def,
                      DeviceKind device_kind) {
   ws_ = std::make_shared<Workspace>(new Workspace());
-
+  DEBUG_STMT
   device_kind_ = device_kind;
   DEBUG_STMT
   ws_->RunNetOnce(*init_net);
+  DEBUG_STMT
 #if 0
   auto init_net_ = ws_.CreateNet(init_net);
       DEBUG_STMT
@@ -230,8 +228,8 @@ PredictorContext NewCaffe2(char *init_net_file, char *net_file,
     LOG(ERROR) << "exception: " << ex.what();
     errno = EINVAL;
     return nullptr;
-  } catch (...) {
-    LOG(ERROR) << "exception: catch all"
+  } catch (std::exception &ex) {
+    LOG(ERROR) << "exception: catch all [ " << ex.what() << "]"
                << "\n";
     return nullptr;
   }
@@ -272,8 +270,9 @@ void InitCaffe2(DeviceKind device_kind) {
   }
 }
 
-void Predictor::Predict(float *imageData, const int batch, const int channels,
-                        const int width, const int height) {
+void Predictor::Predict(float *imageData, std::string input_type,
+                        const int batch, const int channels, const int width,
+                        const int height) {
   result_ = nullptr;
   DEBUG_STMT
   if (profile_enabled_) {
@@ -285,46 +284,57 @@ void Predictor::Predict(float *imageData, const int batch, const int channels,
   DEBUG_STMT
   const auto data_size = batch * channels * width * height;
   std::vector<float> data;
+  DEBUG_STMT
   data.reserve(data_size);
+  DEBUG_STMT
   std::copy(imageData, imageData + data_size, data.begin());
   std::vector<int64_t> dims({batch, channels, width, height});
-  DEBUG_STMT
-  // currently supports one input tensor
-  TensorCPU input_tensor;
-  input_tensor.Resize(dims);
-  input_tensor.ShareExternalPointer(data.data());
-  DEBUG_STMT
-  std::vector<TensorCPU *> inputVec{&input_tensor};
-  std::vector<TensorCPU> outputVec{};
 
-  if (inputVec.size() <= input_names_.size()) {
-    throw std::runtime_error("invalid input vector size");
-  }
   DEBUG_STMT
-  for (auto ii = 0; ii < inputVec.size(); ii++) {
-    DEBUG_STMT
-    auto name = input_names_[ii];
-    auto *blob = ws_->GetBlob(name);
-    if (blob == nullptr) {
-      throw std::runtime_error("blob does not exist");
-    }
-    if (device_kind_ == CUDA_DEVICE_KIND) {
+  auto name = input_names_[0];
+  auto *blob = ws_->GetBlob(name);
+  if (blob == nullptr) {
+    blob = ws_->CreateBlob(input_names_[0]);
+  }
+  if (device_kind_ == CUDA_DEVICE_KIND) {
 #ifdef WITH_CUDA
-      auto *tensor = blob->GetMutable<TensorCUDA>();
-      tensor->CopyFrom(*inputVec[ii]);
-#else
-      throw std::runtime_error("Not set WITH_CUDA = 1");
-#endif  // WITH_CUDA
+    auto cpu_tensor = BlobGetMutableTensor(blob, caffe2::CPU);
+    cpu_tensor->Resize(dims);
+    cpu_tensor->ShareExternalPointer(data.data());
+
+    auto tensor = blob->GetMutable<caffe2::TensorCUDA>();
+    tensor->Resize(dims);
+    tensor->CopyFrom(*cpu_tensor);
+
+    if (input_type == "uint8_t") {
+      tensor->mutable_data<uint8_t>();
+    } else if (input_type == "float") {
+      tensor->mutable_data<float>();
     } else {
-      auto *tensor = blob->GetMutable<TensorCPU>();
-      tensor->ResizeLike(*inputVec[ii]);
-      tensor->ShareData(*inputVec[ii]);
+      std::runtime_error("Unsupported input type");
+    }
+#else
+    throw std::runtime_error("Not set WITH_CUDA = 1");
+#endif  // WITH_CUDA
+  } else {
+    auto tensor = BlobGetMutableTensor(blob, caffe2::CPU);
+    tensor->Resize(dims);
+    tensor->ShareExternalPointer(data.data());
+
+    if (input_type == "uint8_t") {
+      tensor->mutable_data<uint8_t>();
+    } else if (input_type == "float") {
+      tensor->mutable_data<float>();
+    } else {
+      std::runtime_error("Unsupported input type");
     }
   }
   DEBUG_STMT
   if (!net_->Run()) {
     throw std::runtime_error("invalid run");
   }
+
+  std::vector<TensorCPU> outputVec{};
 
   outputVec.resize(output_names_.size());
   for (auto ii = 0; ii < outputVec.size(); ii++) {
@@ -355,103 +365,152 @@ void Predictor::Predict(float *imageData, const int batch, const int channels,
   result_ = (float *)outputVec[0].raw_data();
 }
 
-void PredictCaffe2(PredictorContext pred, float *imageData, const int batch,
-                   const int channels, const int width, const int height) {
-  auto predictor = (Predictor *)pred;
-  if (predictor == nullptr) {
-    std ::cout << __func__ << "  " << __LINE__ << " ... got a null pointer\n";
-    return;
+error_t PredictCaffe2(PredictorContext pred, float *imageData,
+                      const char *input_type, const int batch,
+                      const int channels, const int width, const int height) {
+  try {
+    auto predictor = (Predictor *)pred;
+    if (predictor == nullptr) {
+      std ::cout << __func__ << "  " << __LINE__ << " ... got a null pointer\n";
+      return error_invalid_memory;
+    }
+    predictor->Predict(imageData, input_type, batch, channels, width, height);
+    return success;
+  } catch (std::exception &ex) {
+    LOG(ERROR) << "exception: catch all [ " << ex.what() << "]"
+               << "\n";
+    return error_exception;
   }
-  predictor->Predict(imageData, batch, channels, width, height);
-  return;
 }
 
 const float *GetPredictionsCaffe2(PredictorContext pred) {
-  auto predictor = (Predictor *)pred;
-  if (predictor == nullptr) {
+  try {
+    auto predictor = (Predictor *)pred;
+    if (predictor == nullptr) {
+      return nullptr;
+    }
+    return predictor->result_;
+  } catch (std::exception &ex) {
+    LOG(ERROR) << "exception: catch all [ " << ex.what() << "]"
+               << "\n";
     return nullptr;
   }
-  return predictor->result_;
 }
 
 void DeleteCaffe2(PredictorContext pred) {
-  auto predictor = (Predictor *)pred;
-  if (predictor == nullptr) {
-    return;
-  }
-  if (predictor->prof_) {
-    predictor->prof_->reset();
-    delete predictor->prof_;
-    predictor->prof_ = nullptr;
-  }
-  delete predictor;
+  try {
+    auto predictor = (Predictor *)pred;
+    if (predictor == nullptr) {
+      return;
+    }
+    if (predictor->prof_) {
+      predictor->prof_->reset();
+      delete predictor->prof_;
+      predictor->prof_ = nullptr;
+    }
+    delete predictor;
 
 #ifdef WITH_CUDA
-  if (cuda_context != nullptr) {
-    delete cuda_context;
-    cuda_context = nullptr;
-  }
+    if (cuda_context != nullptr) {
+      delete cuda_context;
+      cuda_context = nullptr;
+    }
 #endif  // WITH_CUDA
+  } catch (std::exception &ex) {
+    LOG(ERROR) << "exception: catch all [ " << ex.what() << "]"
+               << "\n";
+    return;
+  }
 }
 
 void StartProfilingCaffe2(PredictorContext pred, const char *name,
                           const char *metadata) {
-  if (name == nullptr) {
-    name = "";
-  }
-  if (metadata == nullptr) {
-    metadata = "";
-  }
-  if (pred == nullptr) {
+  try {
+    if (name == nullptr) {
+      name = "";
+    }
+    if (metadata == nullptr) {
+      metadata = "";
+    }
+    if (pred == nullptr) {
+      return;
+    }
+    DEBUG_STMT
+
+    auto predictor = (Predictor *)pred;
+    predictor->profile_enabled_ = true;
+    predictor->profile_name_ = std::string(name);
+    predictor->profile_metadata_ = std::string(metadata);
+  } catch (std::exception &ex) {
+    LOG(ERROR) << "exception: catch all [ " << ex.what() << "]"
+               << "\n";
     return;
   }
-  DEBUG_STMT
-
-  auto predictor = (Predictor *)pred;
-  predictor->profile_enabled_ = true;
-  predictor->profile_name_ = std::string(name);
-  predictor->profile_metadata_ = std::string(metadata);
 }
 
 void EndProfilingCaffe2(PredictorContext pred) {
-  auto predictor = (Predictor *)pred;
-  if (predictor == nullptr) {
+  try {
+    auto predictor = (Predictor *)pred;
+    if (predictor == nullptr) {
+      return;
+    }
+    if (predictor->prof_) {
+      predictor->prof_->end();
+    }
+  } catch (std::exception &ex) {
+    LOG(ERROR) << "exception: catch all [ " << ex.what() << "]"
+               << "\n";
     return;
-  }
-  if (predictor->prof_) {
-    predictor->prof_->end();
   }
 }
 
 void DisableProfilingCaffe2(PredictorContext pred) {
-  auto predictor = (Predictor *)pred;
-  if (predictor == nullptr) {
+  try {
+    auto predictor = (Predictor *)pred;
+    if (predictor == nullptr) {
+      return;
+    }
+    if (predictor->prof_) {
+      predictor->prof_->reset();
+      predictor->profile_name_ = std::string("");
+      predictor->profile_metadata_ = std::string("");
+    }
+  } catch (std::exception &ex) {
+    LOG(ERROR) << "exception: catch all [ " << ex.what() << "]"
+               << "\n";
     return;
-  }
-  if (predictor->prof_) {
-    predictor->prof_->reset();
-    predictor->profile_name_ = std::string("");
-    predictor->profile_metadata_ = std::string("");
   }
 }
 
 char *ReadProfileCaffe2(PredictorContext pred) {
-  auto predictor = (Predictor *)pred;
-  if (predictor == nullptr) {
-    return strdup("");
+  try {
+    auto predictor = (Predictor *)pred;
+    if (predictor == nullptr) {
+      return strdup("");
+    }
+    if (predictor->prof_ == nullptr) {
+      return strdup("");
+    }
+    const auto s = predictor->prof_->read();
+    const auto cstr = s.c_str();
+    return strdup(cstr);
+  } catch (std::exception &ex) {
+    LOG(ERROR) << "exception: catch all [ " << ex.what() << "]"
+               << "\n";
+    return nullptr;
   }
-  if (predictor->prof_ == nullptr) {
-    return strdup("");
-  }
-  const auto s = predictor->prof_->read();
-  const auto cstr = s.c_str();
-  return strdup(cstr);
 }
 
 int GetPredLenCaffe2(PredictorContext pred) {
-  auto predictor = (Predictor *)pred;
-  if (predictor == nullptr) {
+  try {
+    auto predictor = (Predictor *)pred;
+    if (predictor == nullptr) {
+      return 0;
+    }
+    return predictor->pred_len_;
+  } catch (std::exception &ex) {
+    LOG(ERROR) << "exception: catch all [ " << ex.what() << "]"
+               << "\n";
     return 0;
   }
-  return predictor->pred_len_;
 }

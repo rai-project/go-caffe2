@@ -34,11 +34,11 @@ func New(ctx context.Context, opts ...options.Option) (*Predictor, error) {
 	defer span.Finish()
 
 	options := options.New(opts...)
-	initNetFile := string(options.Graph())
+	initNetFile := string(options.Weights())
 	if !com.IsFile(initNetFile) {
 		return nil, errors.Errorf("file %s not found", initNetFile)
 	}
-	predictNetFile := string(options.Weights())
+	predictNetFile := string(options.Graph())
 	if !com.IsFile(predictNetFile) {
 		return nil, errors.Errorf("file %s not found", predictNetFile)
 	}
@@ -89,7 +89,13 @@ func (p *Predictor) Predict(ctx context.Context, data []float32, channels int,
 	predictSpan, _ := tracer.StartSpanFromContext(ctx, tracer.MODEL_TRACE, "c_predict")
 	defer predictSpan.Finish()
 
-	C.PredictCaffe2(p.ctx, ptr, C.int(batchSize), C.int(channels), C.int(width), C.int(height))
+	inputType := C.CString("float")
+	defer C.free(unsafe.Pointer(inputType))
+
+	ok := C.PredictCaffe2(p.ctx, ptr, inputType, C.int(batchSize), C.int(channels), C.int(width), C.int(height))
+	if ok != 0 {
+		return errors.New("unable to perform caffe2 prediction")
+	}
 
 	return nil
 }

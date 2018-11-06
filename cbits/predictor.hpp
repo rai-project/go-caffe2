@@ -7,6 +7,8 @@ extern "C" {
 
 #include <stddef.h>
 
+#include "timer.h"
+
 typedef void *PredictorContext;
 
 typedef enum { CPU_DEVICE_KIND = 0, CUDA_DEVICE_KIND = 1 } DeviceKind;
@@ -16,8 +18,9 @@ PredictorContext NewCaffe2(char *init_net_file, char *net_file,
 
 void InitCaffe2(DeviceKind device_kind);
 
-void PredictCaffe2(PredictorContext pred, float *imageData, const int batch,
-                   const int channels, const int width, const int height);
+error_t PredictCaffe2(PredictorContext pred, float *imageData,
+                      const char *input_type, const int batch,
+                      const int channels, const int width, const int height);
 
 const float *GetPredictionsCaffe2(PredictorContext pred);
 
