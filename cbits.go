@@ -53,11 +53,17 @@ func New(ctx context.Context, opts ...options.Option) (*Predictor, error) {
 
 	C.InitCaffe2(device)
 
+	pred := C.NewCaffe2(C.CString(initNetFile),
+		C.CString(predictNetFile),
+		device,
+	)
+
+	if pred == nil {
+		log.Panicln("unable to create caffe2 predictor")
+	}
+
 	return &Predictor{
-		ctx: C.NewCaffe2(C.CString(initNetFile),
-			C.CString(predictNetFile),
-			device,
-		),
+		ctx:     pred,
 		options: options,
 	}, nil
 }

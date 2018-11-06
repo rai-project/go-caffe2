@@ -120,7 +120,7 @@ class Predictor {
 
   DeviceKind device_kind_;
   std::shared_ptr<Workspace> ws_;
-  NetBase * net_;
+  NetBase *net_;
   std::vector<string> input_names_;
   std::vector<string> output_names_;
   int pred_len_;
@@ -130,37 +130,63 @@ class Predictor {
   std::string profile_name_{""}, profile_metadata_{""};
 };
 
-void set_net_engine(NetDef *net_def, DeviceType device_type,
-                    const string &backend) {
+static std::string get_backend(std::string backend) {
+  if (backend != "builtin") {
+    string engine =
+        backend == "nnpack"
+            ? "NNPACK"
+            : backend == "eigen"
+                  ? "EIGEN"
+                  : backend == "mkl"
+                        ? "MKLDNN"
+                        : backend == "cuda"
+                              ? "CUDA"
+                              : backend == "dnnlowp"
+                                    ? "DNNLOWP"
+                                    : backend == "dnnlowp_acc16"
+                                          ? "DNNLOWP_ACC16"
+                                          : backend == "default" ? "" : "NONE";
+    return engine;
+  }
+  return backend;
+}
+
+static void set_net_engine(NetDef *net_def, DeviceType device_type,
+                           const string &backend) {
   for (int i = 0; i < net_def->op_size(); i++) {
     caffe2::OperatorDef *op_def = net_def->mutable_op(i);
-    op_def->set_engine(backend);
-// std::cout<<"device type ="<< TypeToProto(device_type)<<"\n";
+    // op_def->set_engine(backend);
+    // std::cout<<"device type ="<< TypeToProto(device_type)<<"\n";
     op_def->mutable_device_option()->set_device_type(TypeToProto(device_type));
   }
 }
 
-Predictor::Predictor(NetDef *init_net, NetDef *net_def, DeviceKind device_kind) {
-	ws_ = std::make_shared<Workspace>(new Workspace());
+static void set_operator_engine(NetDef *net, DeviceKind device_kind) {
+  std::string backend = "";
   if (device_kind == CUDA_DEVICE_KIND) {
 #ifdef WITH_CUDA
-      DEBUG_STMT
-		   for (int i = 0; i < init_net->op_size(); i++) {
-      caffe2::OperatorDef* op_def = init_net->mutable_op(i);
-      op_def->set_engine("CUDNN");
-    }
-    set_net_engine(net_def,DeviceType::CUDA, "CUDNN");
+    DEBUG_STMT
+    backend = get_backend("cuda");
 #else
     throw std::runtime_error("Not set WITH_CUDA = 1");
 #endif  // WITH_CUDA
   } else {
-    set_net_engine(init_net, DeviceType::CPU, "EIGEN");
-    set_net_engine(net_def, DeviceType::CPU, "EIGEN");
+    backend = get_backend("eigen");
   }
 
+  for (int i = 0; i < net->op_size(); i++) {
+    caffe2::OperatorDef *op_def = net->mutable_op(i);
+    op_def->set_engine(backend);
+  }
+}
+
+Predictor::Predictor(NetDef *init_net, NetDef *net_def,
+                     DeviceKind device_kind) {
+  ws_ = std::make_shared<Workspace>(new Workspace());
+
   device_kind_ = device_kind;
-DEBUG_STMT
-	ws_->RunNetOnce(*init_net);
+  DEBUG_STMT
+  ws_->RunNetOnce(*init_net);
 #if 0
   auto init_net_ = ws_.CreateNet(init_net);
       DEBUG_STMT
@@ -169,21 +195,21 @@ DEBUG_STMT
   }
 #endif
 
-      DEBUG_STMT
-		  if (!net_def->has_name()) {
+  DEBUG_STMT
+  if (!net_def->has_name()) {
     net_def->set_name("go-caffe2");
   }
   net_ = ws_->CreateNet(*net_def);
 
-      DEBUG_STMT
+  DEBUG_STMT
   for (auto ii = 0; ii < net_def->external_input_size(); ii++) {
     input_names_.emplace_back(net_def->external_input(ii));
   }
-      DEBUG_STMT
+  DEBUG_STMT
   for (auto ii = 0; ii < net_def->external_output_size(); ii++) {
     output_names_.emplace_back(net_def->external_output(ii));
   }
-      DEBUG_STMT
+  DEBUG_STMT
 }
 
 PredictorContext NewCaffe2(char *init_net_file, char *net_file,
@@ -191,11 +217,13 @@ PredictorContext NewCaffe2(char *init_net_file, char *net_file,
   try {
     NetDef init_net, net;
     if (!ReadProtoFromFile(init_net_file, &init_net)) {
-		throw std::runtime_error("cannot read init net file");
-	}
+      throw std::runtime_error("cannot read init net file");
+    }
+    set_operator_engine(&init_net, device_kind);
     if (!ReadProtoFromFile(net_file, &net)) {
-		throw std::runtime_error("cannot read net file");
-	}     
+      throw std::runtime_error("cannot read net file");
+    }
+    set_operator_engine(&net, device_kind);
     auto ctx = new Predictor(&init_net, &net, device_kind);
     return (PredictorContext)ctx;
   } catch (const std::invalid_argument &ex) {
@@ -247,45 +275,45 @@ void InitCaffe2(DeviceKind device_kind) {
 void Predictor::Predict(float *imageData, const int batch, const int channels,
                         const int width, const int height) {
   result_ = nullptr;
-      DEBUG_STMT
+  DEBUG_STMT
   if (profile_enabled_) {
     unique_ptr<TimeObserver<NetBase>> net_ob =
         make_unique<TimeObserver<NetBase>>(net_, &prof_, profile_name_,
                                            profile_metadata_);
     net_->AttachObserver(std::move(net_ob));
   }
-      DEBUG_STMT
+  DEBUG_STMT
   const auto data_size = batch * channels * width * height;
   std::vector<float> data;
   data.reserve(data_size);
   std::copy(imageData, imageData + data_size, data.begin());
   std::vector<int64_t> dims({batch, channels, width, height});
-      DEBUG_STMT
+  DEBUG_STMT
   // currently supports one input tensor
   TensorCPU input_tensor;
   input_tensor.Resize(dims);
   input_tensor.ShareExternalPointer(data.data());
-      DEBUG_STMT
+  DEBUG_STMT
   std::vector<TensorCPU *> inputVec{&input_tensor};
   std::vector<TensorCPU> outputVec{};
 
   if (inputVec.size() <= input_names_.size()) {
-	  throw std::runtime_error("invalid input vector size");
+    throw std::runtime_error("invalid input vector size");
   }
-      DEBUG_STMT
+  DEBUG_STMT
   for (auto ii = 0; ii < inputVec.size(); ii++) {
-      DEBUG_STMT
+    DEBUG_STMT
     auto name = input_names_[ii];
     auto *blob = ws_->GetBlob(name);
-	if (blob == nullptr) {
-		throw std::runtime_error("blob does not exist");
-	}
+    if (blob == nullptr) {
+      throw std::runtime_error("blob does not exist");
+    }
     if (device_kind_ == CUDA_DEVICE_KIND) {
 #ifdef WITH_CUDA
       auto *tensor = blob->GetMutable<TensorCUDA>();
       tensor->CopyFrom(*inputVec[ii]);
 #else
-	  throw std::runtime_error("Not set WITH_CUDA = 1");
+      throw std::runtime_error("Not set WITH_CUDA = 1");
 #endif  // WITH_CUDA
     } else {
       auto *tensor = blob->GetMutable<TensorCPU>();
@@ -293,18 +321,18 @@ void Predictor::Predict(float *imageData, const int batch, const int channels,
       tensor->ShareData(*inputVec[ii]);
     }
   }
-      DEBUG_STMT
+  DEBUG_STMT
   if (!net_->Run()) {
-	  throw std::runtime_error("invalid run");
+    throw std::runtime_error("invalid run");
   }
 
   outputVec.resize(output_names_.size());
   for (auto ii = 0; ii < outputVec.size(); ii++) {
     auto name = output_names_[ii];
     auto *blob = ws_->GetBlob(name);
-	if (blob == nullptr) {
-		throw std::runtime_error("output blob does not exist");
-	}
+    if (blob == nullptr) {
+      throw std::runtime_error("output blob does not exist");
+    }
     TensorCPU output_tensor;
 
     if (device_kind_ == CUDA_DEVICE_KIND) {
@@ -331,6 +359,7 @@ void PredictCaffe2(PredictorContext pred, float *imageData, const int batch,
                    const int channels, const int width, const int height) {
   auto predictor = (Predictor *)pred;
   if (predictor == nullptr) {
+    std ::cout << __func__ << "  " << __LINE__ << " ... got a null pointer\n";
     return;
   }
   predictor->Predict(imageData, batch, channels, width, height);
@@ -372,6 +401,9 @@ void StartProfilingCaffe2(PredictorContext pred, const char *name,
   }
   if (metadata == nullptr) {
     metadata = "";
+  }
+  if (pred == nullptr) {
+    return;
   }
   DEBUG_STMT
 
