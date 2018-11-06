@@ -298,13 +298,12 @@ void Predictor::Predict(float *imageData, std::string input_type,
   }
   if (device_kind_ == CUDA_DEVICE_KIND) {
 #ifdef WITH_CUDA
-    auto cpu_tensor = BlobGetMutableTensor(blob, caffe2::CPU);
-    cpu_tensor->Resize(dims);
-    cpu_tensor->ShareExternalPointer(data.data());
+    Tensor cpu_tensor(dims, caffe2::CPU);
+    cpu_tensor.ShareExternalPointer(data.data());
 
     auto tensor = blob->GetMutable<caffe2::TensorCUDA>();
     tensor->Resize(dims);
-    tensor->CopyFrom(*cpu_tensor);
+    tensor->CopyFrom(cpu_tensor);
 
     if (input_type == "uint8_t") {
       tensor->mutable_data<uint8_t>();
