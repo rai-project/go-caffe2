@@ -226,7 +226,7 @@ void InitCaffe2(DeviceKind device_kind) {
   }
 
   caffe2::ClearGlobalNetObservers();
-  caffe2::ShowLogInfoToStderr();
+  //caffe2::ShowLogInfoToStderr();
   initialized_caffe = true;
   int dummy_argc = 1;
   const char *dummy_name = "go-caffe2";

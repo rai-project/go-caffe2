@@ -21,6 +21,7 @@ import (
 	"github.com/k0kubun/pp"
 	"github.com/rai-project/config"
 	"github.com/rai-project/dlframework"
+	"github.com/rai-project/dlframework/framework/feature"
 	"github.com/rai-project/dlframework/framework/options"
 	"github.com/rai-project/downloadmanager"
 	caffe2 "github.com/rai-project/go-caffe2"
@@ -172,7 +173,7 @@ func main() {
 		for jj := 0; jj < featuresLen; jj++ {
 			rprobs[jj] = feature.New(
 				feature.ClassificationIndex(int32(jj)),
-				feature.ClassificationName(labels[jj]),
+				feature.ClassificationLabel(labels[jj]),
 				feature.Probability(output[ii*featuresLen+jj]),
 			)
 		}
@@ -185,7 +186,7 @@ func main() {
 			results := features[i]
 			top1 := results[0]
 			pp.Println(top1.Probability)
-			pp.Println(top1.GetClassification().GetName())
+			pp.Println(top1.GetClassification().GetLabel())
 		}
 	} else {
 		_ = features
