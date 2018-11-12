@@ -31,11 +31,11 @@ import (
 )
 
 var (
-	batchSize    = 64
-	model        = "bvlc_alexnet"
-	graph_url    = "http://s3.amazonaws.com/store.carml.org/models/caffe2/bvlc_alexnet_1.0/predict_net.pb"
-	weights_url  = "http://s3.amazonaws.com/store.carml.org/models/caffe2/bvlc_alexnet_1.0/init_net.pb"
-	features_url = "http://data.dmlc.ml/mxnet/models/imagenet/synset.txt"
+	batchSize   = 64
+	model       = "bvlc_alexnet"
+	graph_url   = "http://s3.amazonaws.com/store.carml.org/models/caffe2/bvlc_alexnet_1.0/predict_net.pb"
+	weights_url = "http://s3.amazonaws.com/store.carml.org/models/caffe2/bvlc_alexnet_1.0/init_net.pb"
+	synset_url  = "http://data.dmlc.ml/mxnet/models/imagenet/synset.txt"
 )
 
 // convert go Image to 1-dim array
@@ -68,7 +68,7 @@ func main() {
 	dir = filepath.Join(dir, model)
 	graph := filepath.Join(dir, "predict_net.pb")
 	weights := filepath.Join(dir, "init_net.pb")
-	features := filepath.Join(dir, "synset.txt")
+	synset := filepath.Join(dir, "synset.txt")
 
 	defer tracer.Close()
 
@@ -83,9 +83,9 @@ func main() {
 			panic(err)
 		}
 	}
-	if _, err := os.Stat(features); os.IsNotExist(err) {
+	if _, err := os.Stat(synset); os.IsNotExist(err) {
 
-		if _, err := downloadmanager.DownloadInto(features_url, dir); err != nil {
+		if _, err := downloadmanager.DownloadInto(synset_url, dir); err != nil {
 			panic(err)
 		}
 	}
