@@ -86,8 +86,8 @@ func (p *Predictor) Predict(ctx context.Context, data []float32, channels int,
 
 	ptr := (*C.float)(unsafe.Pointer(&data[0]))
 
-	predictSpan, _ := tracer.StartSpanFromContext(ctx, tracer.MODEL_TRACE, "c_predict")
-	defer predictSpan.Finish()
+	span, _ := tracer.StartSpanFromContext(ctx, tracer.MODEL_TRACE, "c_predict")
+	defer span.Finish()
 
 	inputType := C.CString("float")
 	defer C.free(unsafe.Pointer(inputType))
