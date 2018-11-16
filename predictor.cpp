@@ -155,7 +155,8 @@ static void set_operator_engine(NetDef *net, DeviceKind device_kind) {
     backend = get_backend("cuda");
     device_type = caffe2::CUDA;
 #else
-    throw std::runtime_error("Not set WITH_CUDA = 1");
+    throw std::runtime_error(
+        "ERROR: go-caffe2 was complied with nogpu tag set");
 #endif  // WITH_CUDA
   } else {
     backend = get_backend("eigen");
@@ -226,7 +227,7 @@ void InitCaffe2(DeviceKind device_kind) {
   }
 
   caffe2::ClearGlobalNetObservers();
-  //caffe2::ShowLogInfoToStderr();
+  // caffe2::ShowLogInfoToStderr();
   initialized_caffe = true;
   int dummy_argc = 1;
   const char *dummy_name = "go-caffe2";
@@ -245,7 +246,8 @@ void InitCaffe2(DeviceKind device_kind) {
     cuda_context = new CUDAContext(option);
     return;
 #else
-    throw std::runtime_error("Not set WITH_CUDA = 1");
+    throw std::runtime_error(
+        "ERROR: go-caffe2 was compiled with nogpu tag set");
 #endif
   }
 }
@@ -283,7 +285,8 @@ void Predictor::Predict(float *imageData, std::string input_type,
     auto tensor = blob->GetMutable<caffe2::TensorCUDA>();
     tensor->CopyFrom(cpu_tensor);
 #else
-    throw std::runtime_error("Not set WITH_CUDA = 1");
+    throw std::runtime_error(
+        "ERROR: go-caffe2 was compiled with nogpu tag set");
 #endif  // WITH_CUDA
   } else {
     auto tensor = BlobGetMutableTensor(blob, caffe2::CPU);
@@ -311,7 +314,8 @@ void Predictor::Predict(float *imageData, std::string input_type,
     cuda_context->FinishDeviceComputation();
     return;
 #else
-    throw std::runtime_error("Not set WITH_CUDA = 1");
+    throw std::runtime_error(
+        "ERROR: go-caffe2 was compiled with nogpu tag set");
 #endif  // WITH_CUDA
   } else {
     auto output_tensor = output_blob->Get<TensorCPU>();

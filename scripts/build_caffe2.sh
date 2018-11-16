@@ -1,4 +1,4 @@
-FRAMEWORK_VERSION=v0.4.1
+FRAMEWORK_VERSION=master
 CAFFE2_SRC_DIR=$HOME/code/pytorch
 
 git clone --single-branch --depth=1 --recurse-submodules --branch=$FRAMEWORK_VERSION https://github.com/pytorch/pytorch.git $CAFFE2_SRC_DIR
