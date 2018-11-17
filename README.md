@@ -2,25 +2,25 @@
 
 ## Caffe2 Installation
 
-Please refer to the `scripts` folder or the `LIBRARY INSTALLATION` section in the [dockefiles](dockerfiles) to install Caffe2 on your system. OpenBLAS is used.
+Please refer to [scripts](scripts) or the `LIBRARY INSTALLATION` section in the [dockefiles](dockerfiles) to install Caffe2 on your system. OpenBLAS is used.
 
 If you get an error about not being able to write to `/opt` then perform the following
 
 ```
-sudo mkdir -p /opt/caffe2
-sudo chown -R `whoami` /opt/caffe2
+sudo mkdir -p /opt/pytorch
+sudo chown -R `whoami` /opt/pytorch
 ```
 
 - The default blas is OpenBLAS.
   The default OpenBLAS path for mac os is `/usr/local/opt/openblas` if installed throught homebrew (openblas is keg-only, which means it was not symlinked into /usr/local, because macOS provides BLAS and LAPACK in the Accelerate framework).
 
-- The default Caffe2 installation path is `/opt/caffe2` for linux, darwin and ppc64le without powerai; `/opt/DL/caffe2` for ppc64le with powerai.
+- The default Caffe2 installation path is `/opt/pytorch/caffe2`.
 
 - The default CUDA path is `/usr/local/cuda`
 
 See [lib.go](lib.go) for details.
 
-After installing Caffe2, run `export DYLD_LIBRARY_PATH=/opt/caffe2/lib:$DYLD_LIBRARY_PATH` on mac os or `export LD_LIBRARY_PATH=/opt/caffe2/lib:$DYLD_LIBRARY_PATH`on linux.
+After installing Caffe2, run `export DYLD_LIBRARY_PATH=/opt/pytorch/caffe2/lib:$DYLD_LIBRARY_PATH` on mac os or `export LD_LIBRARY_PATH=/opt/pytorch/caffe2/lib:$DYLD_LIBRARY_PATH`on linux.
 
 ## Use Other Libary Paths
 
@@ -40,7 +40,7 @@ Run `go build` in to check the Caffe2 installation and library paths set-up.
 
 Make sure you have already [install mlmodelscope dependences](https://docs.mlmodelscope.org/installation/source/dependencies/) and [set up the external services](https://docs.mlmodelscope.org/installation/source/external_services/).
 
-The default is to use GPU, if you don't have a GPU, do `go build -tags nogpu` instead of `go build`.
+On linux, the default is to use GPU, if you don't have a GPU, do `go build -tags nogpu` instead of `go build`.
 
 ### batch
 
@@ -65,9 +65,3 @@ You need GPU and CUDA to run this example. This example is to show how to use nv
 ```
 
 Refer to [Profiler User's Guide](https://docs.nvidia.com/cuda/profiler-users-guide/index.html) on how to use nvprof.
-
-## Issues
-
-### Install Caffe2 with CUDA 10.0
-
-https://github.com/clab/dynet/issues/1457

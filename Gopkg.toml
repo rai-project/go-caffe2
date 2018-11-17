@@ -37,7 +37,7 @@
   name = "github.com/gogo/protobuf"
   version = "1.0.0"
 
-[[constraint]]
+[[override]]
   branch = "master"
   name = "github.com/ianlancetaylor/cgosymbolizer"
 
