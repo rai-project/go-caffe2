@@ -14,25 +14,26 @@ fi
 
 cd $CAFFE2_SRC_DIR && git submodule update --init && rm -rf build && mkdir -p build && cd build && \
 	cmake .. \
+    -DBUILD_PYTHON=ON \
+    -DBUILD_BINARY=OFF \
+    -DBUILD_SHARED_LIBS=ON \
+    -DBUILDING_WITH_TORCH_LIBS=OFF \
+    -DBUILD_CUSTOM_PROTOBUF=OFF \
+    -DUSE_CUDA=ON \
+    -DUSE_CUDNN=ON \
+    -DTORCH_CUDA_ARCH_LIST="3.0 3.5 5.0 5.2 6.0 6.1+PTX 7.0+PTX" \
+    -DPYTORCH_CUDA_ARCH_LIST="3.0 3.5 5.0 5.2 6.0 6.1+PTX 7.0+PTX" \
 	  -DUSE_OBSERVERS=ON \
-      -DUSE_NATIVE_ARCH=ON \
-      -DBLAS=OpenBLAS \
-      -DUSE_CUDA=ON \
-      -DUSE_CUDNN=ON \
-      -DUSE_NNPACK=OFF \
-      -DUSE_ROCKSDB=OFF \
-      -DBUILD_PYTHON=ON \
-      -DBUILD_BINARY=OFF \
-      -DUSE_OPENCV=ON \
-      -DUSE_GLOO=OFF \
-      -DUSE_NCCL=OFF \
-      -DUSE_PROF=ON \
-      -DBUILD_SHARED_LIBS=ON \
-      -DBUILDING_WITH_TORCH_LIBS=OFF \
-      -DBUILD_CUSTOM_PROTOBUF=OFF \
-      -DTORCH_CUDA_ARCH_LIST="3.0 3.5 5.0 5.2 6.0 6.1+PTX 7.0+PTX" \
-      -DPYTORCH_CUDA_ARCH_LIST="3.0 3.5 5.0 5.2 6.0 6.1+PTX 7.0+PTX" \
-      -DCMAKE_INSTALL_PREFIX=$CAFFE2_DIST_DIR \
+    -DUSE_NATIVE_ARCH=ON \
+    -DBLAS=OpenBLAS \
+    -DUSE_NNPACK=ON \
+    -DUSE_ROCKSDB=OFF \
+    -DUSE_OPENCV=ON \
+    -DUSE_DISTRIBUTED=OFF \
+    -DUSE_NCCL=OFF \
+    -DUSE_PROF=ON \
+    -DUSE_MKL=ON \
+    -DCMAKE_INSTALL_PREFIX=$CAFFE2_DIST_DIR \
 
 make -j"$(nproc)" install
 
