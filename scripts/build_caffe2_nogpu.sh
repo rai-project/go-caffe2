@@ -24,7 +24,6 @@ cd $CAFFE2_SRC_DIR && git submodule update --init && rm -rf build && mkdir -p bu
       -DBUILD_PYTHON=ON \
       -DBUILD_BINARY=OFF \
       -DUSE_OPENCV=OFF \
-      -DUSE_NNPACK=ON \
       -DUSE_GLOO=OFF \
       -DUSE_NCCL=OFF \
       -DUSE_PROF=ON \

@@ -19,12 +19,11 @@ cd $CAFFE2_SRC_DIR && git submodule update --init && rm -rf build && mkdir -p bu
       -DBLAS=OpenBLAS \
       -DUSE_CUDA=ON \
       -DUSE_CUDNN=ON \
-      -DUSE_NNPACK=ON \
+      -DUSE_NNPACK=OFF \
       -DUSE_ROCKSDB=OFF \
       -DBUILD_PYTHON=ON \
       -DBUILD_BINARY=OFF \
       -DUSE_OPENCV=ON \
-      -DUSE_NNPACK=ON \
       -DUSE_GLOO=OFF \
       -DUSE_NCCL=OFF \
       -DUSE_PROF=ON \
