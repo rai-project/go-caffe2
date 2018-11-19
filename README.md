@@ -1,4 +1,4 @@
-# Go Bindings for Caffe2 Prediction [![Build Status](https://travis-ci.org/rai-project/go-caffe2.svg?branch=master)](https://travis-ci.org/rai-project/go-caffe2) [![](https://images.microbadger.com/badges/version/carml/go-caffe2:ppc64le-gpu-latest.svg)](https://microbadger.com/images/carml/go-caffe2:ppc64le-gpu-latest 'Get your own version badge on microbadger.com') [![](https://images.microbadger.com/badges/version/carml/go-caffe2:ppc64le-cpu-latest.svg)](https://microbadger.com/images/carml/go-caffe2:ppc64le-cpu-latest 'Get your own version badge on microbadger.com') [![](https://images.microbadger.com/badges/version/carml/go-caffe2:amd64-cpu-latest.svg)](https://microbadger.com/images/carml/go-caffe2:amd64-cpu-latest 'Get your own version badge on microbadger.com') [![](https://images.microbadger.com/badges/version/carml/go-caffe2:amd64-gpu-latest.svg)](https://microbadger.com/images/carml/go-caffe2:amd64-gpu-latest 'Get your own version badge on microbadger.com')
+# Go Bindings for Caffe2 [![Build Status](https://travis-ci.org/rai-project/go-caffe2.svg?branch=master)](https://travis-ci.org/rai-project/go-caffe2) [![](https://images.microbadger.com/badges/version/carml/go-caffe2:ppc64le-gpu-latest.svg)](https://microbadger.com/images/carml/go-caffe2:ppc64le-gpu-latest 'Get your own version badge on microbadger.com') [![](https://images.microbadger.com/badges/version/carml/go-caffe2:ppc64le-cpu-latest.svg)](https://microbadger.com/images/carml/go-caffe2:ppc64le-cpu-latest 'Get your own version badge on microbadger.com') [![](https://images.microbadger.com/badges/version/carml/go-caffe2:amd64-cpu-latest.svg)](https://microbadger.com/images/carml/go-caffe2:amd64-cpu-latest 'Get your own version badge on microbadger.com') [![](https://images.microbadger.com/badges/version/carml/go-caffe2:amd64-gpu-latest.svg)](https://microbadger.com/images/carml/go-caffe2:amd64-gpu-latest 'Get your own version badge on microbadger.com')
 
 ## Caffe2 Installation
 
@@ -36,7 +36,7 @@ For example,
 
 Run `go build` in to check the Caffe2 installation and library paths set-up.
 
-## Run the examples
+## Run Then Examples
 
 Make sure you have already [install mlmodelscope dependences](https://docs.mlmodelscope.org/installation/source/dependencies/) and [set up the external services](https://docs.mlmodelscope.org/installation/source/external_services/).
 
