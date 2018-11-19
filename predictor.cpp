@@ -109,7 +109,7 @@ void TimeObserver<OperatorBase>::Stop() {
 class Predictor {
  public:
   Predictor(NetDef *init_net, NetDef *net_def, DeviceKind device_kind);
-  void Predict(float *imageData, std::string input_type, const int batch,
+  void Predict(float *imageData, std::string input_type, const int batch_size,
                const int channels, const int width, const int height);
 
   DeviceKind device_kind_;
@@ -191,6 +191,79 @@ Predictor::Predictor(NetDef *init_net, NetDef *net_def,
   }
 }
 
+void Predictor::Predict(float *imageData, std::string input_type,
+                        const int batch_size, const int channels,
+                        const int width, const int height) {
+  if (result_ != nullptr) {
+    free(result_);
+    result_ = nullptr;
+  }
+  if (profile_enabled_) {
+    auto net_ob = make_unique<TimeObserver<NetBase>>(
+        net_, &prof_, profile_name_, profile_metadata_);
+    net_->AttachObserver(std::move(net_ob));
+  }
+
+  const auto data_size = batch_size * channels * width * height;
+
+  std::vector<float> data(data_size);
+  std::copy(imageData, imageData + data_size, data.begin());
+
+  std::vector<int64_t> dims({batch_size, channels, width, height});
+
+  auto input_name = input_names_[0];
+  auto *blob = ws_->GetBlob(input_name);
+  if (blob == nullptr) {
+    blob = ws_->CreateBlob(input_name);
+  }
+
+  if (device_kind_ == CUDA_DEVICE_KIND) {
+#ifdef WITH_CUDA
+    Tensor cpu_tensor(dims, caffe2::CPU);
+    cpu_tensor.ShareExternalPointer(data.data());
+    auto tensor = blob->GetMutable<caffe2::TensorCUDA>();
+    tensor->CopyFrom(cpu_tensor);
+#else
+    throw std::runtime_error(
+        "ERROR: go-caffe2 was compiled with nogpu tag set");
+#endif  // WITH_CUDA
+  } else {
+    auto tensor = BlobGetMutableTensor(blob, caffe2::CPU);
+    tensor->Resize(dims);
+    tensor->ShareExternalPointer(data.data());
+  }
+
+  if (!net_->Run()) {
+    throw std::runtime_error("invalid run");
+  }
+
+  auto output_name = output_names_[0];
+  auto *output_blob = ws_->GetBlob(output_name);
+  if (output_blob == nullptr) {
+    throw std::runtime_error("output blob does not exist");
+  }
+
+  if (device_kind_ == CUDA_DEVICE_KIND) {
+#ifdef WITH_CUDA
+    auto output_tensor = output_blob->Get<caffe2::TensorCUDA>();
+    result_ = (void *)malloc(output_tensor.nbytes());
+    pred_len_ = output_tensor.size() / batch_size;
+    cuda_context->CopyBytesToCPU(output_tensor.nbytes(),
+                                 output_tensor.raw_data(), result_);
+    cuda_context->FinishDeviceComputation();
+    return;
+#else
+    throw std::runtime_error(
+        "ERROR: go-caffe2 was compiled with nogpu tag set");
+#endif  // WITH_CUDA
+  } else {
+    auto output_tensor = output_blob->Get<TensorCPU>();
+    pred_len_ = output_tensor.size() / batch_size;
+    result_ = (void *)malloc(output_tensor.nbytes());
+    memcpy(result_, output_tensor.raw_data(), output_tensor.nbytes());
+  }
+}
+
 PredictorContext NewCaffe2(char *init_net_file, char *net_file,
                            DeviceKind device_kind) {
   try {
@@ -252,81 +325,8 @@ void InitCaffe2(DeviceKind device_kind) {
   }
 }
 
-void Predictor::Predict(float *imageData, std::string input_type,
-                        const int batch, const int channels, const int width,
-                        const int height) {
-  if (result_ != nullptr) {
-    free(result_);
-    result_ = nullptr;
-  }
-  if (profile_enabled_) {
-    auto net_ob = make_unique<TimeObserver<NetBase>>(
-        net_, &prof_, profile_name_, profile_metadata_);
-    net_->AttachObserver(std::move(net_ob));
-  }
-
-  const auto data_size = batch * channels * width * height;
-
-  std::vector<float> data(data_size);
-  std::copy(imageData, imageData + data_size, data.begin());
-
-  std::vector<int64_t> dims({batch, channels, width, height});
-
-  auto input_name = input_names_[0];
-  auto *blob = ws_->GetBlob(input_name);
-  if (blob == nullptr) {
-    blob = ws_->CreateBlob(input_name);
-  }
-
-  if (device_kind_ == CUDA_DEVICE_KIND) {
-#ifdef WITH_CUDA
-    Tensor cpu_tensor(dims, caffe2::CPU);
-    cpu_tensor.ShareExternalPointer(data.data());
-    auto tensor = blob->GetMutable<caffe2::TensorCUDA>();
-    tensor->CopyFrom(cpu_tensor);
-#else
-    throw std::runtime_error(
-        "ERROR: go-caffe2 was compiled with nogpu tag set");
-#endif  // WITH_CUDA
-  } else {
-    auto tensor = BlobGetMutableTensor(blob, caffe2::CPU);
-    tensor->Resize(dims);
-    tensor->ShareExternalPointer(data.data());
-  }
-
-  if (!net_->Run()) {
-    throw std::runtime_error("invalid run");
-  }
-
-  auto output_name = output_names_[0];
-  auto *output_blob = ws_->GetBlob(output_name);
-  if (output_blob == nullptr) {
-    throw std::runtime_error("output blob does not exist");
-  }
-
-  if (device_kind_ == CUDA_DEVICE_KIND) {
-#ifdef WITH_CUDA
-    auto output_tensor = output_blob->Get<caffe2::TensorCUDA>();
-    result_ = (void *)malloc(output_tensor.nbytes());
-    pred_len_ = output_tensor.size() / batch;
-    cuda_context->CopyBytesToCPU(output_tensor.nbytes(),
-                                 output_tensor.raw_data(), result_);
-    cuda_context->FinishDeviceComputation();
-    return;
-#else
-    throw std::runtime_error(
-        "ERROR: go-caffe2 was compiled with nogpu tag set");
-#endif  // WITH_CUDA
-  } else {
-    auto output_tensor = output_blob->Get<TensorCPU>();
-    pred_len_ = output_tensor.size() / batch;
-    result_ = (void *)malloc(output_tensor.nbytes());
-    memcpy(result_, output_tensor.raw_data(), output_tensor.nbytes());
-  }
-}
-
 error_t PredictCaffe2(PredictorContext pred, float *imageData,
-                      const char *input_type, const int batch,
+                      const char *input_type, const int batch_size,
                       const int channels, const int width, const int height) {
   try {
     auto predictor = (Predictor *)pred;
@@ -334,7 +334,8 @@ error_t PredictCaffe2(PredictorContext pred, float *imageData,
       std ::cout << __func__ << "  " << __LINE__ << " ... got a null pointer\n";
       return error_invalid_memory;
     }
-    predictor->Predict(imageData, input_type, batch, channels, width, height);
+    predictor->Predict(imageData, input_type, batch_size, channels, width,
+                       height);
     return success;
   } catch (std::exception &ex) {
     LOG(ERROR) << "exception: catch all [ " << ex.what() << "]"
@@ -398,7 +399,6 @@ void StartProfilingCaffe2(PredictorContext pred, const char *name,
     if (pred == nullptr) {
       return;
     }
-
     auto predictor = (Predictor *)pred;
     predictor->profile_enabled_ = true;
     predictor->profile_name_ = std::string(name);
