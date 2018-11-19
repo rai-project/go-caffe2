@@ -67,8 +67,6 @@ func main() {
 	weights := filepath.Join(dir, "init_net.pb")
 	synset := filepath.Join(dir, "synset.txt")
 
-	defer tracer.Close()
-
 	if _, err := os.Stat(graph); os.IsNotExist(err) {
 		if _, err := downloadmanager.DownloadInto(graph_url, dir); err != nil {
 			panic(err)
