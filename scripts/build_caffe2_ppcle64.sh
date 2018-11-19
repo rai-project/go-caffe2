@@ -13,22 +13,26 @@ mkdir -p $CAFFE2_DIST_DIR
 fi
 
 cd $CAFFE2_SRC_DIR && git submodule update --init && mkdir -p build && cd build && \
-  cmake .. \
-    -DCMAKE_INSTALL_PREFIX=$CAFFE2_DIST_DIR \
-    -DUSE_OBSERVERS=ON \
-    -DBLAS=OpenBLAS \
-    -DBUILD_CUSTOM_PROTOBUF=OFF \
+	cmake .. \
     -DBUILD_PYTHON=ON \
-    -DUSE_NNPACK=OFF \
-    -DUSE_ROCKSDB=OFF \
-    -DUSE_OPENCV=ON \
-    -DUSE_GLOO=OFF \
-    -DUSE_NCCL=OFF \
+    -DBUILD_BINARY=OFF \
+    -DBUILD_SHARED_LIBS=ON \
+    -DBUILDING_WITH_TORCH_LIBS=OFF \
+    -DBUILD_CUSTOM_PROTOBUF=OFF \
     -DUSE_CUDA=ON \
     -DUSE_CUDNN=ON \
-    -DBUILD_SHARED_LIBS=ON \
     -DTORCH_CUDA_ARCH_LIST="3.0 3.5 5.0 5.2 6.0 6.1+PTX 7.0+PTX" \
     -DPYTORCH_CUDA_ARCH_LIST="3.0 3.5 5.0 5.2 6.0 6.1+PTX 7.0+PTX" \
+	  -DUSE_OBSERVERS=ON \
+    -DBLAS=OpenBLAS \
+    -DUSE_NNPACK=ON \
+    -DUSE_ROCKSDB=OFF \
+    -DUSE_OPENCV=ON \
+    -DUSE_DISTRIBUTED=OFF \
+    -DUSE_NCCL=OFF \
+    -DUSE_PROF=ON \
+    -DUSE_MKL=OFF \
+    -DCMAKE_INSTALL_PREFIX=$CAFFE2_DIST_DIR \
 
   make -j"$(nproc)" install
 

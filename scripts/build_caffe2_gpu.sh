@@ -32,7 +32,7 @@ cd $CAFFE2_SRC_DIR && git submodule update --init && rm -rf build && mkdir -p bu
     -DUSE_DISTRIBUTED=OFF \
     -DUSE_NCCL=OFF \
     -DUSE_PROF=ON \
-    -DUSE_MKL=ON \
+    -DUSE_MKL=OFF \
     -DCMAKE_INSTALL_PREFIX=$CAFFE2_DIST_DIR \
 
 make -j"$(nproc)" install
