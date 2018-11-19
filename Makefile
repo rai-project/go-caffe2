@@ -20,13 +20,6 @@ install-deps:
 	go get github.com/gogo/protobuf/protoc-gen-gogofaster
 	go get github.com/gogo/protobuf/protoc-gen-gogoslick
 
-glide-install:
-	glide install --force
-
-logrus-fix:
-	rm -fr vendor/github.com/Sirupsen
-	find vendor -type f -exec sed -i 's/Sirupsen/sirupsen/g' {} +
-
 generate: clean
 	protoc --gogofaster_out=import_path=proto:proto -Iproto -I$(GOPATH)/src proto/caffe2.proto
 	${SED} -i '0,/func init/ s/func init/func disabled_init1/' proto/caffe2.pb.go
