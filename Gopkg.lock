@@ -620,12 +620,12 @@
   revision = "bad2efdde8617f86ff24dd63155c974dcf1cfe9e"
 
 [[projects]]
-  branch = "master"
-  digest = "1:fdbe225fb8c6f211c8ecacd43f11c6bdb246f1b33e3ea1a28c8747b2b75379ed"
+  digest = "1:cac592354abf9d569dd7ce41f561a74d871a8a7d6069b7eb3dab6c524480e9d8"
   name = "github.com/rai-project/nvml-go"
   packages = ["."]
   pruneopts = "UT"
-  revision = "fafad6695983303fbc70d31b48814d121994df62"
+  revision = "1727b8458e25f8a7d41981dca1760fb2ddc8618a"
+  version = "v0.1.0"
 
 [[projects]]
   branch = "master"

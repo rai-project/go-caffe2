@@ -81,6 +81,10 @@
   branch = "master"
   name = "github.com/apache/thrift"
 
+[[override]]
+  name = "github.com/rai-project/nvml-go"
+  version = "0.1.0"
+
 [prune]
   go-tests = true
   unused-packages = true
