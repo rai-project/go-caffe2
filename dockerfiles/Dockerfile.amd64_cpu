@@ -1,4 +1,4 @@
-FROM carml/base:amd64-gpu-latest
+FROM carml/base:amd64-cpu-latest
 MAINTAINER Abdul Dakkak <dakkak@illinois.edu>
 
 # Build-time metadata as defined at http://label-schema.org
@@ -76,6 +76,6 @@ WORKDIR $GOPATH/src/$PKG
 
 RUN git clone --depth=1 --branch=$VERSION https://${PKG}.git . && \
   dep ensure && \
-  go build -a -installsuffix cgo -ldflags "-s -w -X ${PKG}/Version=${VERSION} -X ${PKG}/GitCommit=${VCS_REF} -X ${PKG}/BuildDate=${BUILD_DATE}"&& \
-  go install && \
+  go build -tags=nogpu -a -installsuffix cgo -ldflags "-s -w -X ${PKG}/Version=${VERSION} -X ${PKG}/GitCommit=${VCS_REF} -X ${PKG}/BuildDate=${BUILD_DATE}"&& \
+  go install -tags=nogpu && \
   rm -fr vendor
