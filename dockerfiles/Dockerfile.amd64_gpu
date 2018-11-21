@@ -14,7 +14,7 @@ LABEL org.mlmodelscope.go-caffe2.build-date=$BUILD_DATE \
   org.mlmodelscope.go-caffe2.url="https://www.mlmodelscope.org/" \
   org.mlmodelscope.go-caffe2.vcs-ref=$VCS_REF \
   org.mlmodelscope.go-caffe2.vcs-url=$VCS_URL \
-  org.mlmodelscope.go-caffe2.vendor="CarML" \
+  org.mlmodelscope.go-caffe2.vendor="MLModelScope" \
   org.mlmodelscope.go-caffe2.arch=$ARCH \
   org.mlmodelscope.go-caffe2.version=$VERSION \
   org.mlmodelscope.go-caffe2.framework_version=$FRAMEWORK_VERSION \
@@ -23,6 +23,7 @@ LABEL org.mlmodelscope.go-caffe2.build-date=$BUILD_DATE \
 ########## DEPENDENCIES INSTALLATION ###################
 RUN apt-get update && apt-get install -y --no-install-recommends \
   libgoogle-glog-dev \
+  libboost-all-dev \
   libgtest-dev \
   libprotobuf-dev \
   protobuf-compiler \
@@ -48,7 +49,7 @@ RUN git clone --single-branch --depth=1 --recurse-submodules --branch=$FRAMEWORK
   git submodule update --init && \
   mkdir build && cd build && \
   cmake .. \
-  -DCMAKE_INSTALL_PREFIX=$DIST_DIR \
+  -DCMAKE_INSTALL_PREFIX=$CAFFE2_DIST_DIR \
   -DUSE_OBSERVERS=ON \
   -DBLAS=OpenBLAS \
   -DBUILD_CUSTOM_PROTOBUF=OFF \
