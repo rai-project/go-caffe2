@@ -63,14 +63,14 @@ RUN git clone --single-branch --depth=1 --recurse-submodules --branch=$FRAMEWORK
   -DUSE_PROF=ON \
   -DUSE_MKL=OFF \
   -DUSE_ROCKSDB=OFF \
-  -DUSE_OPENCV=ON \
+  -DUSE_OPENCV=OFF \
   -DUSE_GLOO=OFF \
   -DUSE_NCCL=OFF \
   -DUSE_CUDA=ON \
   -DUSE_CUDNN=ON \
   -DBUILD_SHARED_LIBS=ON \
-  -DTORCH_CUDA_ARCH_LIST="3.0 3.5 5.0 5.2 6.0 6.1+PTX 7.0+PTX" \
-  -DPYTORCH_CUDA_ARCH_LIST="3.0 3.5 5.0 5.2 6.0 6.1+PTX 7.0+PTX" \
+  -DTORCH_CUDA_ARCH_LIST="3.5 5.2 6.0 6.1+PTX 7.0+PTX" \
+  -DPYTORCH_CUDA_ARCH_LIST="3.5 5.2 6.0 6.1+PTX 7.0+PTX" \
   && make -j"$(nproc)" install \
   && ldconfig \
   && make clean \
