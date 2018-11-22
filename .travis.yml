@@ -3,12 +3,19 @@ dist: xenial
 sudo: required
 services:
   - docker
-script:
-  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-  - cd ${TRAVIS_BUILD_DIR}/dockerfiles
-  - travis_wait 50 make docker_build_cpu
-  - travis_wait 50 make docker_push_cpu
-  - travis_wait 50 make docker_build_gpu
-  - travis_wait 50 make docker_push_gpu
-after_script:
-  - curl -X POST https://hooks.microbadger.com/images/carml/go-caffe2/AeELmVfl5ucS37qg1Me7vJwauZY=
+jobs:
+  include:
+    - stage: "login"
+      script: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+    - stage: "change dir"
+      script: cd ${TRAVIS_BUILD_DIR}/dockerfiles
+    - stage: build docker
+      script: make docker_build_cpu
+    - stage: build docker
+      script: make docker_build_gpu
+    - stage: push docker
+      script: make docker_push_cpu
+    - stage: push docker
+      script: make docker_push_gpu
+    - stage: update microbadger
+      script: "curl -X POST https://hooks.microbadger.com/images/carml/go-caffe2/AeELmVfl5ucS37qg1Me7vJwauZY="
