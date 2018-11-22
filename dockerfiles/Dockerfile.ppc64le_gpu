@@ -61,8 +61,8 @@ RUN git clone --single-branch --depth=1 --recursive --branch=$FRAMEWORK_VERSION 
   -DUSE_CUDA=ON \
   -DUSE_CUDNN=ON \
   -DBUILD_SHARED_LIBS=ON \
-  -DTORCH_CUDA_ARCH_LIST="3.5 5.2 6.0 6.1 7.0" \
-  -DPYTORCH_CUDA_ARCH_LIST="3.5 5.2 6.0 6.1 7.0" \
+  -DTORCH_CUDA_ARCH_LIST="30 35 37 50 52 53 60 61 62 70 75" \
+  -DPYTORCH_CUDA_ARCH_LIST="30 35 37 50 52 53 60 61 62 70 75" \
   && make -j4 install \
   && ldconfig \
   && make clean \
