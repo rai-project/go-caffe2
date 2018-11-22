@@ -60,7 +60,7 @@ RUN git clone --single-branch --depth=1 --recursive --branch=$FRAMEWORK_VERSION 
   -DUSE_NCCL=OFF \
   -DUSE_CUDA=OFF \
   -DUSE_MKL=OFF \
-  && make -j"$(nproc)" install \
+  && make -j4 install \
   && ldconfig \
   && make clean \
   && cd .. \
@@ -73,7 +73,7 @@ ENV PKG github.com/rai-project/go-caffe2
 WORKDIR $GOPATH/src/$PKG
 
 RUN git clone --depth=1 --branch=$VERSION https://${PKG}.git . && \
-  dep ensure && \
+  dep ensure -vendor-only && \
   go build -tags=nogpu -a -installsuffix cgo -ldflags "-s -w -X ${PKG}/Version=${VERSION} -X ${PKG}/GitCommit=${VCS_REF} -X ${PKG}/BuildDate=${BUILD_DATE}"&& \
   go install -tags=nogpu && \
   rm -fr vendor

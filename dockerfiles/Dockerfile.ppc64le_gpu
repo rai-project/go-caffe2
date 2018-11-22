@@ -64,7 +64,7 @@ RUN git clone --single-branch --depth=1 --recursive --branch=$FRAMEWORK_VERSION 
   -DCUDA_ARCH_NAME=Manual \
   -DCUDA_ARCH_BIN="35 52 60 61 70" \
   -DCUDA_ARCH_PTX="61 70" \
-  && make -j"$(nproc)" install \
+  && make -j4 install \
   && ldconfig \
   && make clean \
   && cd .. \
@@ -77,7 +77,7 @@ ENV PKG github.com/rai-project/go-caffe2
 WORKDIR $GOPATH/src/$PKG
 
 RUN git clone --depth=1 --branch=$VERSION https://${PKG}.git . && \
-  dep ensure && \
+  dep ensure -vendor-only && \
   go build -a -installsuffix cgo -ldflags "-s -w -X ${PKG}/Version=${VERSION} -X ${PKG}/GitCommit=${VCS_REF} -X ${PKG}/BuildDate=${BUILD_DATE}"&& \
   go install && \
   rm -fr vendor

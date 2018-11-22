@@ -71,7 +71,7 @@ RUN git clone --single-branch --depth=1 --recurse-submodules --branch=$FRAMEWORK
   -DBUILD_SHARED_LIBS=ON \
   -DTORCH_CUDA_ARCH_LIST="3.5 5.2 6.0 6.1 7.0" \
   -DPYTORCH_CUDA_ARCH_LIST="3.5 5.2 6.0 6.1 7.0" \
-  && make -j"$(nproc)" install \
+  && make -j4 install \
   && ldconfig \
   && make clean \
   && cd .. \
@@ -84,7 +84,7 @@ ENV PKG github.com/rai-project/go-caffe2
 WORKDIR $GOPATH/src/$PKG
 
 RUN git clone --depth=1 --branch=$VERSION https://${PKG}.git . && \
-  dep ensure && \
+  dep ensure -vendor-only && \
   go build -a -installsuffix cgo -ldflags "-s -w -X ${PKG}/Version=${VERSION} -X ${PKG}/GitCommit=${VCS_REF} -X ${PKG}/BuildDate=${BUILD_DATE}"&& \
   go install && \
   rm -fr vendor
