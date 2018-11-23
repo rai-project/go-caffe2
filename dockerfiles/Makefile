@@ -63,7 +63,15 @@ docker_build_cpu:  # Build CPU Docker image
 		-f Dockerfile.$(ARCH)_cpu \
 		-t "$(DOCKER_IMAGE):$(ARCH)-cpu-$(DOCKER_TAG)" .
 
-docker_build: docker_build_cpu docker_build_gpu
+docker_pull_cpu:
+	docker pull carml/base:$(ARCH)-cpu-latest
+
+docker_pull_gpu:
+	docker pull carml/base:$(ARCH)-gpu-latest
+
+docker_pull: docker_pull_cpu docker_pull_gpu
+
+docker_build: docker_pull docker_build_cpu docker_build_gpu
 
 
 docker_push_cpu: # Tag image as latest and Push to DockerHub
