@@ -40,7 +40,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   python-pip \
   python-setuptools \
   python-yaml  \
-  tzdata && && \
+  tzdata && \
   rm -rf /var/lib/apt/lists/*
 
 ########## LIBRARY INSTALLATION ###################
