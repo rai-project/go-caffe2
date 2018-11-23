@@ -71,7 +71,7 @@ docker_pull_gpu:
 
 docker_pull: docker_pull_cpu docker_pull_gpu
 
-docker_build: docker_pull docker_build_cpu docker_build_gpu
+docker_build: docker_build_cpu docker_build_gpu
 
 
 docker_push_cpu: # Tag image as latest and Push to DockerHub
