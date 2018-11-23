@@ -9,7 +9,6 @@ jobs:
      cd dockerfiles
      make docker_build_cpu
      make docker_push_cpu
-     displayName: 'Build, tag and push cpu image'
 - job: GPU
   pool:
     vmImage: 'Ubuntu 16.04'
@@ -19,7 +18,6 @@ jobs:
      cd dockerfiles
      make docker_build_gpu
      make docker_push_gpu
-     displayName: 'Build, tag and push gpu image'
 - job: Update_Microbadger
   dependsOn:
   - CPU
