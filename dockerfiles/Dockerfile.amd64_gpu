@@ -44,10 +44,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   python-yaml && \
   rm -rf /var/lib/apt/lists/*
 
-
-RUN ln -fs /usr/share/zoneinfo/America/Chicago /etc/localtime && \
-  dpkg-reconfigure --frontend noninteractive tzdata
-
 ########## LIBRARY INSTALLATION ###################
 ENV CAFFE2_DIST_DIR /opt/pytorch/caffe2
 
