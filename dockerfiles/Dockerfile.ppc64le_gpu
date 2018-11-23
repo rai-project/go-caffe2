@@ -41,7 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   rm -rf /var/lib/apt/lists/*
 
 
-RUN ln -fs /usr/share/zoneinfo/America/Chicago/etc/localtime && \
+RUN ln -fs /usr/share/zoneinfo/America/Chicago /etc/localtime && \
   dpkg-reconfigure --frontend noninteractive tzdata
 
 RUN pip install --upgrade pip && \
