@@ -7,7 +7,7 @@ pool:
   vmImage: 'Ubuntu 16.04'
 
 jobs:
--job: CPU
+- job: CPU
   steps:
   - bash: |
      docker login -u $(DOCKER_PASSWORD) -p $(DOCKER_PASSWORD)
@@ -15,7 +15,7 @@ jobs:
      make docker_build_cpu
      make docker_push_cpu
      displayName: 'Build, tag and push cpu image'
--job: GPU
+- job: GPU
   steps:
   - bash: |
      docker login -u $(DOCKER_PASSWORD) -p $(DOCKER_PASSWORD)
