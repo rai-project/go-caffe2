@@ -21,6 +21,7 @@ LABEL org.mlmodelscope.go-caffe2.build-date=$BUILD_DATE \
   org.mlmodelscope.go-caffe2.schema-version="1.0"
 
 ########## DEPENDENCIES INSTALLATION ###################
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
   libgoogle-glog-dev \
   libboost-all-dev \
@@ -71,7 +72,7 @@ RUN git clone --single-branch --depth=1 --recurse-submodules --branch=$FRAMEWORK
   -DBUILD_SHARED_LIBS=ON \
   -DTORCH_CUDA_ARCH_LIST="30 35 37 52 60 6.1+PTX 7.0+PTX 75+PTX" \
   -DPYTORCH_CUDA_ARCH_LIST="30 35 37 52 60 6.1+PTX 7.0+PTX 75+PTX" \
-  && make -j4 install \
+  && make -j$(nproc) install \
   && ldconfig \
   && make clean \
   && cd .. \

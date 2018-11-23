@@ -21,6 +21,7 @@ LABEL org.mlmodelscope.go-caffe2.build-date=$BUILD_DATE \
   org.mlmodelscope.go-caffe2.schema-version="1.0"
 
 ########## DEPENDENCIES INSTALLATION ###################
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
   libgoogle-glog-dev \
   libboost-all-dev \
@@ -60,7 +61,7 @@ RUN git clone --single-branch --depth=1 --recursive --branch=$FRAMEWORK_VERSION 
   -DUSE_NCCL=OFF \
   -DUSE_CUDA=OFF \
   -DUSE_MKL=OFF \
-  && make -j4 install \
+  && make -j$(nproc) install \
   && ldconfig \
   && make clean \
   && cd .. \
