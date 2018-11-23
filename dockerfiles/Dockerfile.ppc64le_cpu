@@ -42,7 +42,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   python-numpy \
   python-pip \
   python-setuptools \
-  python-scipy  && \
+  python-scipy && \
   rm -rf /var/lib/apt/lists/*
 
 RUN ln -fs /usr/share/zoneinfo/America/Chicago /etc/localtime && \
