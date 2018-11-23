@@ -41,7 +41,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   python-dev \
   python-pip \
   python-setuptools \
-  python-yaml && \
+  python-yaml \
+  tzdata && \
   rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir numpy &&\
