@@ -8,13 +8,13 @@ pool:
 
 steps:
 - displayName: build/push docker
-  script: |
+  bash: |
     docker login -u $(dockerId) -p $(pswd)
     cd ${TRAVIS_BUILD_DIR}/dockerfiles
     make docker_build_cpu
     make docker_push_cpu
 - displayName: build/push docker
-  script: |
+  bash: |
     docker login -u $(dockerId) -p $(pswd)
     cd ${TRAVIS_BUILD_DIR}/dockerfiles
     make docker_build_gpu
