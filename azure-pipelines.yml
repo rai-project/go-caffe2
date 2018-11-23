@@ -7,17 +7,15 @@ pool:
   vmImage: 'Ubuntu 16.04'
 
 steps:
-- displayName: build/push docker
-  bash: |
-    docker login -u $(dockerId) -p $(pswd)
-    cd ${TRAVIS_BUILD_DIR}/dockerfiles
-    make docker_build_cpu
-    make docker_push_cpu
-- displayName: build/push docker
-  bash: |
-    docker login -u $(dockerId) -p $(pswd)
-    cd ${TRAVIS_BUILD_DIR}/dockerfiles
-    make docker_build_gpu
-    make docker_push_gpu
-- displayName: update microbadger
-  script: "curl -X POST https://hooks.microbadger.com/images/carml/go-caffe2/AeELmVfl5ucS37qg1Me7vJwauZY="
+- bash: |
+   docker login -u $(DOCKER_PASSWORD) -p $(DOCKER_PASSWORD)
+   cd dockerfiles
+   make docker_build_cpu
+   make docker_push_cpu
+   displayName: 'Build, tag and push cpu image'
+- bash: |
+   docker login -u $(DOCKER_PASSWORD) -p $(DOCKER_PASSWORD)
+   cd dockerfiles
+   make docker_build_gpu
+   make docker_push_gpu
+   displayName: 'Build, tag and push gpu image'
