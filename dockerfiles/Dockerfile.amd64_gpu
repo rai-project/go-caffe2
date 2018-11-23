@@ -39,13 +39,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   python-dev \
   python-pip \
   python-setuptools \
-  python-typing \
-  python-numpy \
   python-yaml && \
   rm -rf /var/lib/apt/lists/*
 
 ########## LIBRARY INSTALLATION ###################
 ENV CAFFE2_DIST_DIR /opt/pytorch/caffe2
+
+RUN pip install --no-cache-dir numpy &&\
+  pip install --no-cache-dir typing
 
 RUN git clone --single-branch --depth=1 --recurse-submodules --branch=$FRAMEWORK_VERSION https://github.com/pytorch/pytorch.git && cd pytorch && \
   git submodule update --init && \
