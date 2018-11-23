@@ -6,16 +6,20 @@
 pool:
   vmImage: 'Ubuntu 16.04'
 
-steps:
-- bash: |
-   docker login -u $(DOCKER_PASSWORD) -p $(DOCKER_PASSWORD)
-   cd dockerfiles
-   make docker_build_cpu
-   make docker_push_cpu
-   displayName: 'Build, tag and push cpu image'
-- bash: |
-   docker login -u $(DOCKER_PASSWORD) -p $(DOCKER_PASSWORD)
-   cd dockerfiles
-   make docker_build_gpu
-   make docker_push_gpu
-   displayName: 'Build, tag and push gpu image'
+jobs:
+-job: CPU
+  steps:
+  - bash: |
+     docker login -u $(DOCKER_PASSWORD) -p $(DOCKER_PASSWORD)
+     cd dockerfiles
+     make docker_build_cpu
+     make docker_push_cpu
+     displayName: 'Build, tag and push cpu image'
+-job: GPU
+  steps:
+  - bash: |
+     docker login -u $(DOCKER_PASSWORD) -p $(DOCKER_PASSWORD)
+     cd dockerfiles
+     make docker_build_gpu
+     make docker_push_gpu
+     displayName: 'Build, tag and push gpu image'
