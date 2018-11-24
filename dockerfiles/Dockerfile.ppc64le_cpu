@@ -85,7 +85,7 @@ RUN echo "$CAFFE2_DIST_DIR/lib" >> /etc/ld.so.conf.d/caffe2.conf && ldconfig
 ENV PKG github.com/rai-project/go-caffe2
 WORKDIR $GOPATH/src/$PKG
 
-RUN git clone --depth=1 --branch=$VERSION https://${PKG}.git . && \
+RUN git clone --depth=1 https://${PKG}.git . && \
   dep ensure -vendor-only && \
   go build -tags=nogpu -a -installsuffix cgo -ldflags "-s -w -X ${PKG}/Version=${VERSION} -X ${PKG}/GitCommit=${VCS_REF} -X ${PKG}/BuildDate=${BUILD_DATE}"&& \
   go install -tags=nogpu && \
