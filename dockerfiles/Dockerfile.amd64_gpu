@@ -73,6 +73,7 @@ RUN git clone --single-branch --depth=1 --recurse-submodules --branch=$FRAMEWORK
   -DUSE_CUDA=ON \
   -DUSE_CUDNN=ON \
   -DBUILD_SHARED_LIBS=ON \
+  -DCUDA_ARCH_NAME=Manual \
   -DTORCH_CUDA_ARCH_LIST="3.0 3.5 3.7 5.0 5.2 5.3 6.0 6.1+PTX 7.0+PTX 7.5+PTX" \
   -DPYTORCH_CUDA_ARCH_LIST="3.0 3.5 3.7 5.0 5.2 5.3 6.0 6.1+PTX 7.0+PTX 7.5+PTX" \
   && make -j$(nproc) install \
