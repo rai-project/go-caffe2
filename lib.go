@@ -7,7 +7,5 @@ package caffe2
 // #cgo darwin CXXFLAGS: -I/usr/local/opt/openblas/include
 // #cgo !darwin,!nogpu CXXFLAGS: -DWITH_CUDA=1 -I/usr/local/cuda/include
 // #cgo !darwin,!nogpu LDFLAGS: -L/usr/local/cuda/lib64 -lcaffe2_gpu -lcurand -lcudart
-// #cgo !ppc64le CXXFLAGS: -march=native
-// #cgo ppc64le CXXFLAGS: -mcpu=native
 // #cgo pkg-config: protobuf
 import "C"
