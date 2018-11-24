@@ -27,6 +27,10 @@
 using namespace caffe2;
 using std::string;
 
+#ifdef WITH_CUDA
+static CUDAContext *cuda_context = nullptr;
+#endif  // WITH_CUDA
+
 template <class T>
 class TimeObserver final : public ObserverBase<T> {
  public:
@@ -288,10 +292,6 @@ PredictorContext NewCaffe2(char *init_net_file, char *net_file,
     return nullptr;
   }
 }
-
-#ifdef WITH_CUDA
-static CUDAContext *cuda_context = nullptr;
-#endif  // WITH_CUDA
 
 void InitCaffe2(DeviceKind device_kind) {
   static bool initialized_caffe = false;
