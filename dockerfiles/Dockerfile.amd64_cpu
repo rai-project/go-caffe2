@@ -61,17 +61,19 @@ RUN git clone --single-branch --depth=1 --recurse-submodules --branch=$FRAMEWORK
   -DCMAKE_INSTALL_PREFIX=$CAFFE2_DIST_DIR \
   -DBUILD_SHARED_LIBS=ON \
   -DUSE_OBSERVERS=ON \
+  -DUSE_PROF=ON \
   -DBLAS=OpenBLAS \
   -DBUILD_CUSTOM_PROTOBUF=OFF \
   -DBUILD_PYTHON=ON \
+  -DUSE_NATIVE_ARCH=ON \
   -DUSE_NNPACK=ON \
   -DUSE_OPENCV=OFF \
+  -DUSE_MKL=OFF \
   -DUSE_DISTRIBUTED=OFF \
   -DUSE_ROCKSDB=OFF \
   -DUSE_GLOO=OFF \
   -DUSE_NCCL=OFF \
   -DUSE_CUDA=OFF \
-  -DUSE_MKL=OFF \
   && make -j$(nproc) install \
   && ldconfig \
   && make clean \
