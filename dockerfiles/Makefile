@@ -41,7 +41,6 @@ ifneq ($(VERSION_COMMIT), $(GIT_COMMIT))
 $(error echo You are trying to push a build based on commit $(GIT_COMMIT) but the tagged release version is $(VERSION_COMMIT))
 endif
 
-
 else
 # Add the commit ref for development builds. Mark as dirty if the working directory isn't clean
 DOCKER_TAG = $(CODE_VERSION)-$(GIT_COMMIT)$(DOCKER_TAG_SUFFIX)

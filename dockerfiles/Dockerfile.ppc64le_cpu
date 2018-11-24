@@ -65,7 +65,6 @@ RUN git clone --single-branch --depth=1 --recursive --branch=$FRAMEWORK_VERSION 
   -DBLAS=OpenBLAS \
   -DBUILD_CUSTOM_PROTOBUF=OFF \
   -DBUILD_PYTHON=ON \
-  -DUSE_NATIVE_ARCH=ON \
   -DUSE_NNPACK=ON \
   -DUSE_OPENCV=OFF \
   -DUSE_MKL=OFF \
