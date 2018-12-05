@@ -48,9 +48,9 @@ func cvtImageTo1DArray(src image.Image, mean []float32) ([]float32, error) {
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
 			r, g, b, _ := src.At(x+b.Min.X, y+b.Min.Y).RGBA()
-			res[y*w+x] = float32(b>>8) - mean[0]
-			res[w*h+y*w+x] = float32(g>>8) - mean[1]
-			res[2*w*h+y*w+x] = float32(r>>8) - mean[2]
+			res[y*w+x] = (float32(b>>8) - mean[0]) / 255.0
+			res[w*h+y*w+x] = (float32(g>>8) - mean[1]) / 225.0
+			res[2*w*h+y*w+x] = (float32(r>>8) - mean[2]) / 225.0
 		}
 	}
 
@@ -89,7 +89,7 @@ func main() {
 	var input []float32
 	for ii := 0; ii < batchSize; ii++ {
 		resized := transform.Resize(img, 224, 224, transform.Linear)
-		res, err := cvtImageTo1DArray(resized, []float32{123, 117, 104})
+		res, err := cvtImageTo1DArray(resized, []float32{0, 0, 0})
 		if err != nil {
 			panic(err)
 		}
