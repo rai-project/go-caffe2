@@ -12,7 +12,9 @@
 #include <caffe2/core/operator.h>
 #include <caffe2/utils/proto_utils.h>
 
-#include "caffe2/proto/caffe2.pb.h"
+#include <caffe2/onnx/backend.h>
+
+#include <caffe2/proto/caffe2.pb.h>
 
 #include <caffe2/core/tensor.h>
 
@@ -112,6 +114,7 @@ void TimeObserver<OperatorBase>::Stop() {
 
 class Predictor {
  public:
+  Predictor(DeviceKind device_kind);
   Predictor(NetDef *init_net, NetDef *net_def, DeviceKind device_kind);
   void Predict(float *imageData, std::string input_type, const int batch_size,
                const int channels, const int width, const int height);
@@ -126,6 +129,10 @@ class Predictor {
   void *result_{nullptr};
   bool profile_enabled_{false};
   profile *prof_{nullptr};
+
+  caffe2::onnx::Caffe2BackendRep *onnx_backend;
+  caffe2::onnx::Caffe2Backend onnx_instance;
+
   std::string profile_name_{""}, profile_metadata_{""};
 };
 
@@ -175,6 +182,8 @@ static void set_operator_engine(NetDef *net, DeviceKind device_kind) {
     op_def->mutable_device_option()->set_device_type(TypeToProto(device_type));
   }
 }
+
+Predictor::Predictor(DeviceKind device_kind) { device_kind_ = device_kind; }
 
 Predictor::Predictor(NetDef *init_net, NetDef *net_def,
                      DeviceKind device_kind) {
@@ -281,6 +290,30 @@ PredictorContext NewCaffe2(char *init_net_file, char *net_file,
     }
     set_operator_engine(&net, device_kind);
     auto ctx = new Predictor(&init_net, &net, device_kind);
+    return (PredictorContext)ctx;
+  } catch (const std::invalid_argument &ex) {
+    LOG(ERROR) << "exception: " << ex.what();
+    errno = EINVAL;
+    return nullptr;
+  } catch (std::exception &ex) {
+    LOG(ERROR) << "exception: catch all [ " << ex.what() << "]"
+               << "\n";
+    return nullptr;
+  }
+}
+
+PredictorContext NewCaffe2FromOnnx(char *onnx_data, int64_t onnx_data_len,
+                                   DeviceKind device) {
+  try {
+    auto ctx = new Predictor(device_kind);
+
+    std::vector<caffe2::onnx::Caffe2Ops> extras;
+    std::string content(model_data, model_data_len);
+    ctx->onnx_backend = ctx->onnx_instance.Prepare(
+        content,
+        (device_kind == CUDA_DEVICE_KIND ? get_backend("cuda")
+                                         : get_backend("eigen")),
+        extras);
     return (PredictorContext)ctx;
   } catch (const std::invalid_argument &ex) {
     LOG(ERROR) << "exception: " << ex.what();

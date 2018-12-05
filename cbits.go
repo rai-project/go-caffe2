@@ -7,6 +7,8 @@ import "C"
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"unsafe"
 
 	"github.com/rai-project/dlframework/framework/options"
@@ -38,9 +40,14 @@ func New(ctx context.Context, opts ...options.Option) (*Predictor, error) {
 	if !com.IsFile(initNetFile) {
 		return nil, errors.Errorf("file %s not found", initNetFile)
 	}
-	predictNetFile := string(options.Graph())
-	if !com.IsFile(predictNetFile) {
-		return nil, errors.Errorf("file %s not found", predictNetFile)
+
+	isOnnxFormat := filepath.Ext(initNetFile) == "onnx"
+
+	if !isOnnxFormat {
+		predictNetFile := string(options.Graph())
+		if !com.IsFile(predictNetFile) {
+			return nil, errors.Errorf("file %s not found", predictNetFile)
+		}
 	}
 
 	device := C.DeviceKind(CPUDevice)
@@ -53,10 +60,35 @@ func New(ctx context.Context, opts ...options.Option) (*Predictor, error) {
 
 	C.InitCaffe2(device)
 
-	pred := C.NewCaffe2(C.CString(initNetFile),
-		C.CString(predictNetFile),
-		device,
-	)
+	var pred C.PredictorContext
+	if isOnnxFormat {
+		bts, err := ioutil.ReadFile(initNetFile)
+		if err != nil {
+			return nil, errors.Wrapf(err, "cannot read %s", initNetFile)
+		}
+
+		cNetData := C.CBytes(bts)
+		defer func() {
+			C.free(unsafe.Pointer(cNetData))
+		}()
+		pred = C.NewCaffe2FromOnnx(
+			cNetData,
+      C.int64_t(len(bts)),
+			device,
+		)
+	} else {
+		cInitNetFile := C.CString(initNetFile)
+		cPredictNetFile := C.CString(predictNetFile)
+		defer func() {
+			C.free(unsafe.Pointer(cInitNetFile))
+			C.free(unsafe.Pointer(cPredictNetFile))
+		}()
+		pred = C.NewCaffe2(
+		 cInitNetFile,
+		cPredictNetFile,
+			device,
+		)
+	}
 
 	if pred == nil {
 		log.Panicln("unable to create caffe2 predictor")
