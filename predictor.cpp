@@ -11,7 +11,7 @@
 #include <caffe2/core/observer.h>
 #include <caffe2/core/operator.h>
 #include <caffe2/utils/proto_utils.h>
-
+#include <caffe2/core/types.h>
 #include <caffe2/onnx/backend.h>
 
 #include <caffe2/proto/caffe2.pb.h>
@@ -27,11 +27,14 @@
 #include "timer.impl.hpp"
 
 using namespace caffe2;
+using namespace ONNX_NAMESPACE;
 using std::string;
 
 #ifdef WITH_CUDA
 static CUDAContext *cuda_context = nullptr;
 #endif  // WITH_CUDA
+
+namespace mlmodelscope {
 
 template <class T>
 class TimeObserver final : public ObserverBase<T> {
@@ -135,6 +138,7 @@ class Predictor {
 
   std::string profile_name_{""}, profile_metadata_{""};
 };
+}
 
 static std::string get_backend(std::string backend) {
   if (backend != "builtin") {
@@ -183,9 +187,9 @@ static void set_operator_engine(NetDef *net, DeviceKind device_kind) {
   }
 }
 
-Predictor::Predictor(DeviceKind device_kind) { device_kind_ = device_kind; }
+mlmodelscope::Predictor::Predictor(DeviceKind device_kind) { device_kind_ = device_kind; }
 
-Predictor::Predictor(NetDef *init_net, NetDef *net_def,
+mlmodelscope::Predictor::Predictor(NetDef *init_net, NetDef *net_def,
                      DeviceKind device_kind) {
   ws_ = new Workspace();
   device_kind_ = device_kind;
@@ -204,9 +208,10 @@ Predictor::Predictor(NetDef *init_net, NetDef *net_def,
   }
 }
 
-void Predictor::Predict(float *imageData, std::string input_type,
+void mlmodelscope::Predictor::Predict(float *imageData, std::string input_type,
                         const int batch_size, const int channels,
                         const int width, const int height) {
+    using mlmodelscope::TimeObserver;
   if (result_ != nullptr) {
     free(result_);
     result_ = nullptr;
@@ -289,7 +294,7 @@ PredictorContext NewCaffe2(char *init_net_file, char *net_file,
       throw std::runtime_error("cannot read net file");
     }
     set_operator_engine(&net, device_kind);
-    auto ctx = new Predictor(&init_net, &net, device_kind);
+    auto ctx = new mlmodelscope::Predictor(&init_net, &net, device_kind);
     return (PredictorContext)ctx;
   } catch (const std::invalid_argument &ex) {
     LOG(ERROR) << "exception: " << ex.what();
@@ -305,7 +310,7 @@ PredictorContext NewCaffe2(char *init_net_file, char *net_file,
 PredictorContext NewCaffe2FromOnnx(char *onnx_data, int64_t onnx_data_len,
                                    DeviceKind device) {
   try {
-    auto ctx = new Predictor(device_kind);
+    auto ctx = new mlmodelscope::Predictor(device_kind);
 
     std::vector<caffe2::onnx::Caffe2Ops> extras;
     std::string content(model_data, model_data_len);
@@ -362,7 +367,7 @@ error_t PredictCaffe2(PredictorContext pred, float *imageData,
                       const char *input_type, const int batch_size,
                       const int channels, const int width, const int height) {
   try {
-    auto predictor = (Predictor *)pred;
+    auto predictor = (mlmodelscope::Predictor *)pred;
     if (predictor == nullptr) {
       std ::cout << __func__ << "  " << __LINE__ << " ... got a null pointer\n";
       return error_invalid_memory;
@@ -379,7 +384,7 @@ error_t PredictCaffe2(PredictorContext pred, float *imageData,
 
 float *GetPredictionsCaffe2(PredictorContext pred) {
   try {
-    auto predictor = (Predictor *)pred;
+    auto predictor = (mlmodelscope::Predictor *)pred;
     if (predictor == nullptr) {
       return nullptr;
     }
@@ -396,7 +401,7 @@ float *GetPredictionsCaffe2(PredictorContext pred) {
 
 void DeleteCaffe2(PredictorContext pred) {
   try {
-    auto predictor = (Predictor *)pred;
+    auto predictor = (mlmodelscope::Predictor *)pred;
     if (predictor == nullptr) {
       return;
     }
@@ -432,7 +437,7 @@ void StartProfilingCaffe2(PredictorContext pred, const char *name,
     if (pred == nullptr) {
       return;
     }
-    auto predictor = (Predictor *)pred;
+    auto predictor = (mlmodelscope::Predictor *)pred;
     predictor->profile_enabled_ = true;
     predictor->profile_name_ = std::string(name);
     predictor->profile_metadata_ = std::string(metadata);
@@ -445,7 +450,7 @@ void StartProfilingCaffe2(PredictorContext pred, const char *name,
 
 void EndProfilingCaffe2(PredictorContext pred) {
   try {
-    auto predictor = (Predictor *)pred;
+    auto predictor = (mlmodelscope::Predictor *)pred;
     if (predictor == nullptr) {
       return;
     }
@@ -461,7 +466,7 @@ void EndProfilingCaffe2(PredictorContext pred) {
 
 void DisableProfilingCaffe2(PredictorContext pred) {
   try {
-    auto predictor = (Predictor *)pred;
+    auto predictor = (mlmodelscope::Predictor *)pred;
     if (predictor == nullptr) {
       return;
     }
@@ -479,7 +484,7 @@ void DisableProfilingCaffe2(PredictorContext pred) {
 
 char *ReadProfileCaffe2(PredictorContext pred) {
   try {
-    auto predictor = (Predictor *)pred;
+    auto predictor = (mlmodelscope::Predictor *)pred;
     if (predictor == nullptr) {
       return strdup("");
     }
@@ -498,7 +503,7 @@ char *ReadProfileCaffe2(PredictorContext pred) {
 
 int GetPredLenCaffe2(PredictorContext pred) {
   try {
-    auto predictor = (Predictor *)pred;
+    auto predictor = (mlmodelscope::Predictor *)pred;
     if (predictor == nullptr) {
       return 0;
     }
