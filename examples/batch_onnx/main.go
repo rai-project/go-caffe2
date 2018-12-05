@@ -68,6 +68,7 @@ func main() {
 	if _, err := os.Stat(weights); os.IsNotExist(err) {
 
 		if _, err := downloadmanager.DownloadInto(weights_url, dir); err != nil {
+			// note the code may not be able to unzip correctly
 			panic(err)
 		}
 	}
