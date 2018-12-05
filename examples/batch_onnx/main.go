@@ -99,7 +99,7 @@ func main() {
 	opts := options.New()
 
 	device := options.CPU_DEVICE
-	if false && nvidiasmi.HasGPU {
+	if nvidiasmi.HasGPU {
 		device = options.CUDA_DEVICE
 	}
 
