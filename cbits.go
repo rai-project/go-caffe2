@@ -41,10 +41,11 @@ func New(ctx context.Context, opts ...options.Option) (*Predictor, error) {
 		return nil, errors.Errorf("file %s not found", initNetFile)
 	}
 
-	isOnnxFormat := filepath.Ext(initNetFile) == "onnx"
+	isOnnxFormat := filepath.Ext(initNetFile) == ".onnx"
+	var predictNetFile string
 
 	if !isOnnxFormat {
-		predictNetFile := string(options.Graph())
+		predictNetFile = string(options.Graph())
 		if !com.IsFile(predictNetFile) {
 			return nil, errors.Errorf("file %s not found", predictNetFile)
 		}
@@ -72,8 +73,8 @@ func New(ctx context.Context, opts ...options.Option) (*Predictor, error) {
 			C.free(unsafe.Pointer(cNetData))
 		}()
 		pred = C.NewCaffe2FromOnnx(
-			cNetData,
-      C.int64_t(len(bts)),
+			(*C.char)(cNetData),
+			C.int64_t(len(bts)),
 			device,
 		)
 	} else {
@@ -84,8 +85,8 @@ func New(ctx context.Context, opts ...options.Option) (*Predictor, error) {
 			C.free(unsafe.Pointer(cPredictNetFile))
 		}()
 		pred = C.NewCaffe2(
-		 cInitNetFile,
-		cPredictNetFile,
+			cInitNetFile,
+			cPredictNetFile,
 			device,
 		)
 	}

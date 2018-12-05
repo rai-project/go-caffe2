@@ -13,6 +13,7 @@
 #include <caffe2/utils/proto_utils.h>
 #include <caffe2/core/types.h>
 #include <caffe2/onnx/backend.h>
+#include <caffe2/onnx/backend_rep.h>
 
 #include <caffe2/proto/caffe2.pb.h>
 
@@ -117,7 +118,6 @@ void TimeObserver<OperatorBase>::Stop() {
 
 class Predictor {
  public:
-  Predictor(DeviceKind device_kind);
   Predictor(NetDef *init_net, NetDef *net_def, DeviceKind device_kind);
   void Predict(float *imageData, std::string input_type, const int batch_size,
                const int channels, const int width, const int height);
@@ -133,8 +133,7 @@ class Predictor {
   bool profile_enabled_{false};
   profile *prof_{nullptr};
 
-  caffe2::onnx::Caffe2BackendRep *onnx_backend;
-  caffe2::onnx::Caffe2Backend onnx_instance;
+  caffe2::onnx::Caffe2BackendRep *onnx_backend_;
 
   std::string profile_name_{""}, profile_metadata_{""};
 };
@@ -161,51 +160,64 @@ static std::string get_backend(std::string backend) {
   return backend;
 }
 
-static void set_operator_engine(NetDef *net, DeviceKind device_kind) {
-  std::string backend = "";
-  DeviceType device_type;
 
-  if (device_kind == CUDA_DEVICE_KIND) {
-#ifdef WITH_CUDA
-    backend = get_backend("cuda");
-    device_type = caffe2::CUDA;
-#else
-    throw std::runtime_error(
-        "ERROR: go-caffe2 was complied with nogpu tag set");
-#endif  // WITH_CUDA
-  } else {
-    backend = get_backend("eigen");
-    device_type = caffe2::CPU;
-  }
-
+static void set_operator_engine(NetDef *net, DeviceType device_type) {
   net->mutable_device_option()->set_device_type(TypeToProto(device_type));
 
   for (int i = 0; i < net->op_size(); i++) {
     caffe2::OperatorDef *op_def = net->mutable_op(i);
-    op_def->set_engine(backend);
     op_def->mutable_device_option()->set_device_type(TypeToProto(device_type));
   }
 }
 
-mlmodelscope::Predictor::Predictor(DeviceKind device_kind) { device_kind_ = device_kind; }
+static void set_operator_engine(NetDef *net, std::string backend, DeviceType device_type) {
 
-mlmodelscope::Predictor::Predictor(NetDef *init_net, NetDef *net_def,
+	set_operator_engine(net, device_type);
+
+  for (int i = 0; i < net->op_size(); i++) {
+    caffe2::OperatorDef *op_def = net->mutable_op(i);
+    op_def->set_engine(backend);
+  }
+}
+
+static void set_operator_engine(NetDef *net, DeviceKind device_kind) {
+  if (device_kind == CUDA_DEVICE_KIND) {
+#ifdef WITH_CUDA
+    set_operator_engine(net,  get_backend("cuda") , caffe2::CUDA);
+	return ;
+#else
+    throw std::runtime_error(
+        "ERROR: go-caffe2 was complied with nogpu tag set");
+#endif  // WITH_CUDA
+  } 
+  set_operator_engine(net,  get_backend("eigen") , caffe2::CPU);
+}
+
+mlmodelscope::Predictor::Predictor(NetDef *init_net, NetDef *pred_net_def,
                      DeviceKind device_kind) {
   ws_ = new Workspace();
   device_kind_ = device_kind;
   ws_->RunNetOnce(*init_net);
 
-  if (!net_def->has_name()) {
-    net_def->set_name("go-caffe2");
+  for (auto in : pred_net_def->external_input()) {
+	  auto* blob = ws_->GetBlob(in);
+	  if (!blob) {
+		  ws_->CreateBlob(in);
+	  }
+    input_names_.emplace_back(in);
   }
-  net_ = ws_->CreateNet(*net_def);
+  for (auto  out: pred_net_def->external_output()) {
+	  auto* blob = ws_->GetBlob(out);
+	  if (!blob) {
+		  ws_->CreateBlob(out);
+	  }
+    output_names_.emplace_back(out);
+  }
 
-  for (auto ii = 0; ii < net_def->external_input_size(); ii++) {
-    input_names_.emplace_back(net_def->external_input(ii));
+  if (!pred_net_def->has_name()) {
+    pred_net_def->set_name("go-caffe2");
   }
-  for (auto ii = 0; ii < net_def->external_output_size(); ii++) {
-    output_names_.emplace_back(net_def->external_output(ii));
-  }
+  net_ = ws_->CreateNet(*pred_net_def);
 }
 
 void mlmodelscope::Predictor::Predict(float *imageData, std::string input_type,
@@ -282,19 +294,19 @@ void mlmodelscope::Predictor::Predict(float *imageData, std::string input_type,
   }
 }
 
-PredictorContext NewCaffe2(char *init_net_file, char *net_file,
+PredictorContext NewCaffe2(char *init_net_file, char *pred_net_file,
                            DeviceKind device_kind) {
   try {
-    NetDef init_net, net;
+    NetDef init_net, pred_net;
     if (!ReadProtoFromFile(init_net_file, &init_net)) {
       throw std::runtime_error("cannot read init net file");
     }
     set_operator_engine(&init_net, device_kind);
-    if (!ReadProtoFromFile(net_file, &net)) {
-      throw std::runtime_error("cannot read net file");
+    if (!ReadProtoFromFile(pred_net_file, &pred_net)) {
+      throw std::runtime_error("cannot read pred net file");
     }
-    set_operator_engine(&net, device_kind);
-    auto ctx = new mlmodelscope::Predictor(&init_net, &net, device_kind);
+    set_operator_engine(&pred_net, device_kind);
+    auto ctx = new mlmodelscope::Predictor(&init_net, &pred_net, device_kind);
     return (PredictorContext)ctx;
   } catch (const std::invalid_argument &ex) {
     LOG(ERROR) << "exception: " << ex.what();
@@ -307,18 +319,28 @@ PredictorContext NewCaffe2(char *init_net_file, char *net_file,
   }
 }
 
-PredictorContext NewCaffe2FromOnnx(char *onnx_data, int64_t onnx_data_len,
-                                   DeviceKind device) {
+PredictorContext NewCaffe2FromOnnx(char *model_data, int64_t model_data_len,
+                                   DeviceKind device_kind) {
   try {
-    auto ctx = new mlmodelscope::Predictor(device_kind);
-
+    caffe2::onnx::Caffe2Backend onnx_instance;
     std::vector<caffe2::onnx::Caffe2Ops> extras;
     std::string content(model_data, model_data_len);
-    ctx->onnx_backend = ctx->onnx_instance.Prepare(
+    auto onnx_backend = onnx_instance.Prepare(
         content,
-        (device_kind == CUDA_DEVICE_KIND ? get_backend("cuda")
-                                         : get_backend("eigen")),
+        (device_kind == CUDA_DEVICE_KIND ? "CUDA"
+                                         : "CPU"),
         extras);
+	auto init_net = onnx_backend->init_net();
+    auto pred_net = onnx_backend->pred_net();
+	if (device_kind == CUDA_DEVICE_KIND) {
+		set_operator_engine(&pred_net,  get_backend("cuda") , caffe2::CUDA);
+		set_operator_engine(&init_net,  get_backend("cuda") , caffe2::CUDA);
+	} else {
+		set_operator_engine(&pred_net,   caffe2::CPU);
+		set_operator_engine(&init_net,   caffe2::CPU);
+	}
+    auto ctx = new mlmodelscope::Predictor(&init_net, &pred_net, device_kind);
+	ctx->onnx_backend_ = onnx_backend;
     return (PredictorContext)ctx;
   } catch (const std::invalid_argument &ex) {
     LOG(ERROR) << "exception: " << ex.what();
