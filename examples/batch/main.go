@@ -30,8 +30,8 @@ import (
 var (
 	batchSize   = 64
 	model       = "bvlc_alexnet"
-	graph_url   = "http://s3.amazonaws.com/store.carml.org/models/caffe2/bvlc_alexnet_1.0/predict_net.pb"
-	weights_url = "http://s3.amazonaws.com/store.carml.org/models/caffe2/bvlc_alexnet_1.0/init_net.pb"
+	graph_url   = "http://s3.amazonaws.com/store.carml.org/models/caffe2/bvlc_alexnet/bvlc_alexnet_caffe2/predict_net.pb"
+	weights_url = "http://s3.amazonaws.com/store.carml.org/models/caffe2/bvlc_alexnet/bvlc_alexnet_caffe2/init_net.pb"
 	synset_url  = "http://data.dmlc.ml/mxnet/models/imagenet/synset.txt"
 )
 
