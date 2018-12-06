@@ -251,7 +251,7 @@ void mlmodelscope::Predictor::Predict(float *imageData, std::string input_type,
 #ifdef WITH_CUDA
     Tensor cpu_tensor(dims, caffe2::CPU);
     cpu_tensor.ShareExternalPointer(data.data());
-    auto tensor = blob->GetMutable<caffe2::TensorCUDA>();
+    auto tensor = BlobGetMutableTensor(blob, caffe2::CUDA);
     tensor->CopyFrom(cpu_tensor);
 #else
     throw std::runtime_error(
