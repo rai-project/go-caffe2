@@ -28,10 +28,9 @@ import (
 )
 
 var (
-	batchSize   = 64
-	model       = "bvlc_alexnet"
-	graph_url   = "http://s3.amazonaws.com/store.carml.org/models/caffe2/bvlc_alexnet/bvlc_alexnet_caffe2/predict_net.pb"
-	weights_url = "http://s3.amazonaws.com/store.carml.org/models/caffe2/bvlc_alexnet/bvlc_alexnet_caffe2/init_net.pb"
+	batchSize   = 1
+	model       = "shufflenet"
+	weights_url = "https://s3.amazonaws.com/download.onnx/models/opset_8/shufflenet.tar.gz"
 	synset_url  = "http://data.dmlc.ml/mxnet/models/imagenet/synset.txt"
 )
 
@@ -49,9 +48,9 @@ func cvtImageTo1DArray(src image.Image, mean []float32) ([]float32, error) {
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
 			r, g, b, _ := src.At(x+b.Min.X, y+b.Min.Y).RGBA()
-			res[y*w+x] = float32(b>>8) - mean[0]
-			res[w*h+y*w+x] = float32(g>>8) - mean[1]
-			res[2*w*h+y*w+x] = float32(r>>8) - mean[2]
+			res[y*w+x] = (float32(b>>8) - mean[0]) / 255.0
+			res[w*h+y*w+x] = (float32(g>>8) - mean[1]) / 225.0
+			res[2*w*h+y*w+x] = (float32(r>>8) - mean[2]) / 225.0
 		}
 	}
 
@@ -63,18 +62,13 @@ func main() {
 
 	dir, _ := filepath.Abs("../tmp")
 	dir = filepath.Join(dir, model)
-	graph := filepath.Join(dir, "predict_net.pb")
-	weights := filepath.Join(dir, "init_net.pb")
+	weights := filepath.Join(dir, "model.onnx")
 	synset := filepath.Join(dir, "synset.txt")
 
-	if _, err := os.Stat(graph); os.IsNotExist(err) {
-		if _, err := downloadmanager.DownloadInto(graph_url, dir); err != nil {
-			panic(err)
-		}
-	}
 	if _, err := os.Stat(weights); os.IsNotExist(err) {
 
 		if _, err := downloadmanager.DownloadInto(weights_url, dir); err != nil {
+			// note the code may not be able to unzip correctly
 			panic(err)
 		}
 	}
@@ -95,8 +89,8 @@ func main() {
 
 	var input []float32
 	for ii := 0; ii < batchSize; ii++ {
-		resized := transform.Resize(img, 227, 227, transform.Linear)
-		res, err := cvtImageTo1DArray(resized, []float32{123, 117, 104})
+		resized := transform.Resize(img, 224, 224, transform.Linear)
+		res, err := cvtImageTo1DArray(resized, []float32{0, 0, 0})
 		if err != nil {
 			panic(err)
 		}
@@ -119,7 +113,6 @@ func main() {
 		ctx,
 		options.WithOptions(opts),
 		options.Device(device, 0),
-		options.Graph([]byte(graph)),
 		options.Weights([]byte(weights)),
 		options.BatchSize(batchSize))
 	if err != nil {
@@ -139,7 +132,7 @@ func main() {
 
 	predictor.StartProfiling("predict", "")
 
-	err = predictor.Predict(ctx, input, 3, 227, 227)
+	err = predictor.Predict(ctx, input, 3, 224, 224)
 	if err != nil {
 		panic(err)
 	}
