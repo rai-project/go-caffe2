@@ -1,5 +1,6 @@
 jobs:
   - job: CPU
+    timeoutInMinutes: 0
     steps:
       - bash: |
           docker login -u $(DOCKER_USERNAME) -p $(DOCKER_PASSWORD)
@@ -8,6 +9,7 @@ jobs:
           make docker_build_cpu
           ./push_cpu.sh
   - job: GPU
+    timeoutInMinutes: 0
     steps:
       - bash: |
           docker login -u $(DOCKER_USERNAME) -p $(DOCKER_PASSWORD)
@@ -20,4 +22,4 @@ jobs:
       - CPU
       - GPU
     steps:
-      - script: 'curl -X POST https://hooks.microbadger.com/images/carml/go-caffe2/AeELmVfl5ucS37qg1Me7vJwauZY='
+      - script: "curl -X POST https://hooks.microbadger.com/images/carml/go-caffe2/AeELmVfl5ucS37qg1Me7vJwauZY="
