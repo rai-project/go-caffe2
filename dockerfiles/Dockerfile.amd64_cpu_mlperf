@@ -1,0 +1,94 @@
+FROM carml/base:amd64-cpu-mlperf-latest
+MAINTAINER Abdul Dakkak <dakkak@illinois.edu>
+
+# Build-time metadata as defined at http://label-schema.org
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VCS_URL
+ARG VERSION
+ARG ARCH
+ARG FRAMEWORK_VERSION
+LABEL org.mlmodelscope.go-caffe2.build-date=$BUILD_DATE \
+  org.mlmodelscope.go-caffe2.name="go-caffe2 bindings for go" \
+  org.mlmodelscope.go-caffe2.description="" \
+  org.mlmodelscope.go-caffe2.url="https://www.mlmodelscope.org/" \
+  org.mlmodelscope.go-caffe2.vcs-ref=$VCS_REF \
+  org.mlmodelscope.go-caffe2.vcs-url=$VCS_URL \
+  org.mlmodelscope.go-caffe2.vendor="MLModelScope" \
+  org.mlmodelscope.go-caffe2.arch=$ARCH \
+  org.mlmodelscope.go-caffe2.version=$VERSION \
+  org.mlmodelscope.go-caffe2.framework_version=$FRAMEWORK_VERSION \
+  org.mlmodelscope.go-caffe2.schema-version="1.0"
+
+########## DEPENDENCIES INSTALLATION ###################
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  libgoogle-glog-dev \
+  libboost-all-dev \
+  libgtest-dev \
+  libprotobuf-dev \
+  protobuf-compiler \
+  libgflags-dev \
+  libiomp-dev \
+  libleveldb-dev \
+  liblmdb-dev \
+  libopencv-dev \
+  libopenmpi-dev \
+  libsnappy-dev \
+  openmpi-bin \
+  openmpi-doc \
+  libeigen3-dev \
+  python-dev \
+  python-pip \
+  python-setuptools \
+  python-yaml \
+  tzdata && \
+  rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir numpy &&\
+  pip install --no-cache-dir typing
+
+RUN ln -fs /usr/share/zoneinfo/America/Chicago /etc/localtime && \
+  dpkg-reconfigure --frontend noninteractive tzdata
+
+########## LIBRARY INSTALLATION ###################
+ENV CAFFE2_DIST_DIR /opt/pytorch/caffe2
+
+RUN git clone --single-branch --depth=1 --recurse-submodules --branch=$FRAMEWORK_VERSION https://github.com/pytorch/pytorch.git && cd pytorch && \
+  git submodule update --init && \
+  mkdir build && cd build && \
+  cmake .. \
+  -DCMAKE_INSTALL_PREFIX=$CAFFE2_DIST_DIR \
+  -DBUILD_SHARED_LIBS=ON \
+  -DUSE_OBSERVERS=ON \
+  -DUSE_PROF=ON \
+	-DCMAKE_CXX_FLAGS="-O2 -g -Wall -Werror=format-security -Werror=implicit-function-declaration -Wl,-z,defs -Wl,-z,now -fasynchronous-unwind-tables -fexceptions -grecord-gcc-switches -mno-avx -mno-aes -mno-sse -fno-tree-vectorize D_GLIBCXX_USE_C99 -D__STDC_ISO_10646__=201505L -D_GLIBCXX_USE_C99_MATH -D__GLIBCXX__=20160904""\
+  -DBLAS=OpenBLAS \
+  -DBUILD_CUSTOM_PROTOBUF=OFF \
+  -DBUILD_PYTHON=ON \
+  -DUSE_NATIVE_ARCH=ON \
+  -DUSE_NNPACK=ON \
+  -DUSE_OPENCV=OFF \
+  -DUSE_MKL=OFF \
+  -DUSE_DISTRIBUTED=OFF \
+  -DUSE_ROCKSDB=OFF \
+  -DUSE_GLOO=OFF \
+  -DUSE_NCCL=OFF \
+  -DUSE_CUDA=OFF \
+  && make -j$(nproc) install \
+  && ldconfig \
+  && make clean \
+  && cd .. \
+  && rm -rf build
+
+RUN echo "$CAFFE2_DIST_DIR/lib" >> /etc/ld.so.conf.d/caffe2.conf && ldconfig
+
+# ########## GO BINDING INSTALLATION ###################
+ENV PKG github.com/rai-project/go-caffe2
+WORKDIR $GOPATH/src/$PKG
+
+RUN git clone --depth=1 https://${PKG}.git . && \
+  dep ensure -vendor-only && \
+  go build -tags=nogpu -a -installsuffix cgo -ldflags "-s -w -X ${PKG}/Version=${VERSION} -X ${PKG}/GitCommit=${VCS_REF} -X ${PKG}/BuildDate=${BUILD_DATE}"&& \
+  go install -tags=nogpu && \
+  rm -fr vendor
