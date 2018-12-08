@@ -61,7 +61,7 @@
   name = "github.com/apache/thrift"
   packages = ["lib/go/thrift"]
   pruneopts = "UT"
-  revision = "17a9cffabb746f7dc481a5af9d8a1aeeda537fb6"
+  revision = "208a048dc440036bd5304a6fd16e32fda33b4600"
 
 [[projects]]
   branch = "master"
@@ -111,8 +111,8 @@
     "service/sts",
   ]
   pruneopts = "UT"
-  revision = "130ebb7dc1d6b5a940198b47642fc8b20936a65d"
-  version = "v1.16.1"
+  revision = "c4e0e593d5f18b478f17ff0e86b56d41a70ced2d"
+  version = "v1.16.2"
 
 [[projects]]
   branch = "master"
@@ -372,11 +372,11 @@
   revision = "5e5cf60278f657d30daa329dd0e7e893b6b8f027"
 
 [[projects]]
-  digest = "1:e22af8c7518e1eab6f2eab2b7d7558927f816262586cd6ed9f349c97a6c285c4"
+  digest = "0:"
   name = "github.com/jmespath/go-jmespath"
   packages = ["."]
   pruneopts = "UT"
-  revision = "0b12d6b5"
+  revision = "c2b33e84"
 
 [[projects]]
   digest = "1:16dd6b893b78a50564cdde1d9f7ea67224dece11bb0886bd882f1dc3dc1d440d"
@@ -567,7 +567,7 @@
     "framework/options",
   ]
   pruneopts = "UT"
-  revision = "a2461eed7175274589055ce7c775c0e4baf86b16"
+  revision = "cf6d267beb3539420d766439860a8db1fec99352"
 
 [[projects]]
   branch = "master"
@@ -756,7 +756,7 @@
     "remote",
   ]
   pruneopts = "UT"
-  revision = "41cd1c3aa32b2685fae6c296e6f044bc68922c0e"
+  revision = "6d33b5a963d922d182c91e8a1c88d81fd150cfd4"
 
 [[projects]]
   digest = "1:6849ab573a052cb69884a13775d4c2032e187cc27392784b6b88a6b7f20d9801"
@@ -854,7 +854,7 @@
     "trace",
   ]
   pruneopts = "UT"
-  revision = "351d144fa1fc0bd934e2408202be0c29f25e35a0"
+  revision = "610586996380ceef02dd726cc09df7e00a3f8e56"
 
 [[projects]]
   branch = "master"
