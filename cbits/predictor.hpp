@@ -52,6 +52,9 @@ error_t PredictCaffe2(PredictorContext pred);
 
 void *GetPredictionsCaffe2(PredictorContext pred, int idx);
 
+Caffe2_TensorInfo GetPredictionInformationCaffe2(PredictorContext pred,
+                                                 int idx);
+
 void DeleteCaffe2(PredictorContext pred);
 
 void StartProfilingCaffe2(PredictorContext pred, const char *name,

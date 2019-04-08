@@ -133,6 +133,27 @@ func (p *Predictor) Predict(ctx context.Context, inputs []tensor.Tensor) error {
 	return nil
 }
 
+type NodeInformation struct {
+	NumberOfElements int64
+	NumberOfBytes    uint64
+	Shape            []int
+}
+
+func (p *Predictor) ReadPredictionOutputInformationAtIndex(ctx context.Context, index int) (*NodeInformation, error) {
+
+	info := C.GetPredictionInformationCaffe2(p.handle, index)
+
+	cShape := (*[1 << 30]int)(unsafe.Pointer(info.dims))[:info.ndims:info.ndims]
+	shape := make([]int, int(info.ndims))
+	copy(shape, cShape)
+
+	return &NodeInformation{
+		NumberOfElements: int64(info.num_elems),
+		NumberOfBytes:    int64(info.dims),
+		Shape:            shape,
+	}, nil
+}
+
 func (p *Predictor) ReadPredictionOutputAtIndex(ctx context.Context, index int) (tensor.Tensor, error) {
 	node := p.options.OutputNodes()[index]
 
@@ -140,10 +161,10 @@ func (p *Predictor) ReadPredictionOutputAtIndex(ctx context.Context, index int) 
 		panic("only supports float32 for now")
 	}
 
-	ptr := C.GetPredictionsCaffe2(p.handle, indx)
+	ptr := C.GetPredictionsCaffe2(p.handle, index)
+	info := p.ReadPredictionOutputInformationAtIndex(ctx, idx)
 
-	shape := node.Shape
-	return toTensor(ptr, shape, node.Dtype)
+	return toTensor(ptr, info.Shape, node.Dtype)
 }
 
 func (p *Predictor) ReadPredictionOutput(ctx context.Context) ([]tensor.Tensor, error) {

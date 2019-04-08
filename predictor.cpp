@@ -279,7 +279,7 @@ TensorInfo mlmodelscope::Predictor::GetOutputInfo(int idx) {
     output_tensor = output_blob->Get<caffe2::TensorCUDA>();
   }
 
-  return TensorInfo{.size = output_tensor.numel(),
+  return TensorInfo{.num_elems = output_tensor.numel(),
                     .nbytes = output_tensor.nbytes(),
                     dims = output_tensor.sizes().data(),
                     ndims = output_tensor.sizes().size()};
@@ -430,6 +430,25 @@ error_t PredictCaffe2(PredictorContext pred) {
     LOG(ERROR) << "exception: catch all [ " << ex.what() << "]"
                << "\n";
     return error_exception;
+  }
+}
+
+Caffe2_TensorInfo GetPredictionInformationCaffe2(PredictorContext pred,
+                                                 int idx) {
+  try {
+    auto predictor = (mlmodelscope::Predictor *)pred;
+    if (predictor == nullptr) {
+      return nullptr;
+    }
+    auto result = predictor->GetOutputInfo(idx);
+    if (result == nullptr) {
+      throw std::runtime_error("expected a non-nil result");
+    }
+    return result;
+  } catch (std::exception &ex) {
+    LOG(ERROR) << "exception: catch all [ " << ex.what() << "]"
+               << "\n";
+    return nullptr;
   }
 }
 
