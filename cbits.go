@@ -9,11 +9,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"runtime"
 	"unsafe"
 
 	"github.com/rai-project/dlframework/framework/options"
-	"github.com/rai-project/nvidia-smi"
+	nvidiasmi "github.com/rai-project/nvidia-smi"
 	"github.com/rai-project/tracer"
+	"gorgonia.org/tensor"
 
 	"github.com/Unknwon/com"
 	"github.com/pkg/errors"
@@ -27,7 +29,7 @@ const (
 )
 
 type Predictor struct {
-	ctx     C.PredictorContext
+	handle  C.PredictorContext
 	options *options.Options
 }
 
@@ -51,12 +53,12 @@ func New(ctx context.Context, opts ...options.Option) (*Predictor, error) {
 		}
 	}
 
-	device := C.DeviceKind(CPUDevice)
+	device := C.Caffe2_DeviceKind(CPUDevice)
 	if options.UsesGPU() {
 		if !nvidiasmi.HasGPU {
 			return nil, errors.New("no GPU device")
 		}
-		device = C.DeviceKind(CUDADevice)
+		device = C.Caffe2_DeviceKind(CUDADevice)
 	}
 
 	C.InitCaffe2(device)
@@ -95,37 +97,35 @@ func New(ctx context.Context, opts ...options.Option) (*Predictor, error) {
 		log.Panicln("unable to create caffe2 predictor")
 	}
 
-	return &Predictor{
-		ctx:     pred,
+	p := &Predictor{
+		handle:  pred,
 		options: options,
-	}, nil
+	}
+
+	runtime.SetFinalizer(p, (*Predictor).finalize)
+
+	return p, nil
 }
 
-func (p *Predictor) Predict(ctx context.Context, data []float32, channels int,
-	width int, height int) error {
-	if data == nil || len(data) < 1 {
+func (p *Predictor) AddInput(ctx context.Context, idx int, data tensor.Tensor) error {
+}
+
+func (p *Predictor) Predict(ctx context.Context, inputs []tensor.Tensor) error {
+	if len(data) == 0 {
 		return fmt.Errorf("intput data nil or empty")
 	}
 
-	batchSize := p.options.BatchSize()
-	dataLen := len(data)
-	shapeLen := int(width * height * channels)
-
-	inputCount := dataLen / shapeLen
-	if batchSize > inputCount {
-		padding := make([]float32, (batchSize-inputCount)*shapeLen)
-		data = append(data, padding...)
+	for ii, input := range inputs {
+		err := p.AddInput(ctx, ii, input)
+		if err != nil {
+			return err
+		}
 	}
-
-	ptr := (*C.float)(unsafe.Pointer(&data[0]))
 
 	span, _ := tracer.StartSpanFromContext(ctx, tracer.MODEL_TRACE, "c_predict")
 	defer span.Finish()
 
-	inputType := C.CString("float")
-	defer C.free(unsafe.Pointer(inputType))
-
-	ok := C.PredictCaffe2(p.ctx, ptr, inputType, C.int(batchSize), C.int(channels), C.int(width), C.int(height))
+	ok := C.PredictCaffe2(p.handle)
 	if ok != 0 {
 		return errors.New("unable to perform caffe2 prediction")
 	}
@@ -133,23 +133,46 @@ func (p *Predictor) Predict(ctx context.Context, data []float32, channels int,
 	return nil
 }
 
-func (p *Predictor) ReadPredictionOutput(ctx context.Context) ([]float32, error) {
+func (p *Predictor) ReadPredictionOutputAtIndex(ctx context.Context, index int) (tensor.Tensor, error) {
+	node := p.options.OutputNodes()[index]
+
+	if node.Dtype != tensor.Float32 {
+		panic("only supports float32 for now")
+	}
+
+	ptr := C.GetPredictionsCaffe2(p.handle, indx)
+
+	shape := node.Shape
+	return toTensor(ptr, shape, node.Dtype)
+}
+
+func (p *Predictor) ReadPredictionOutput(ctx context.Context) ([]tensor.Tensor, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, tracer.MODEL_TRACE, "c_read_prediction_output")
 	defer span.Finish()
 
-	batchSize := p.options.BatchSize()
-	predLen := int(C.GetPredLenCaffe2(p.ctx))
-	length := batchSize * predLen
+	outputNodes := p.options.OutputNodes()
+	res := make([]tensor.Tensor, len(outputNodes))
 
-	cPredictions := C.GetPredictionsCaffe2(p.ctx)
+	for ii := 0; ii < len(outputNodes); ii++ {
+		tensor, err := p.ReadPredictionOutputAtIndex(ctx, ii)
+		if err != nil {
+			return nil, err
+		}
+		res[ii] = tensor
+	}
 
-	slice := (*[1 << 30]float32)(unsafe.Pointer(cPredictions))[:length:length]
+	return res, nil
+}
 
-	return slice, nil
+func (p *Predictor) finalize() {
+	if p == nil {
+		return
+	}
+	C.DeleteCaffe2(p.handle)
 }
 
 func (p *Predictor) Close() {
-	C.DeleteCaffe2(p.ctx)
+	p.finalize()
 }
 
 func (p *Predictor) StartProfiling(name, metadata string) error {
@@ -157,22 +180,22 @@ func (p *Predictor) StartProfiling(name, metadata string) error {
 	cmetadata := C.CString(metadata)
 	defer C.free(unsafe.Pointer(cname))
 	defer C.free(unsafe.Pointer(cmetadata))
-	C.StartProfilingCaffe2(p.ctx, cname, cmetadata)
+	C.StartProfilingCaffe2(p.handle, cname, cmetadata)
 	return nil
 }
 
 func (p *Predictor) EndProfiling() error {
-	C.EndProfilingCaffe2(p.ctx)
+	C.EndProfilingCaffe2(p.handle)
 	return nil
 }
 
 func (p *Predictor) DisableProfiling() error {
-	C.DisableProfilingCaffe2(p.ctx)
+	C.DisableProfilingCaffe2(p.handle)
 	return nil
 }
 
 func (p *Predictor) ReadProfile() (string, error) {
-	cstr := C.ReadProfileCaffe2(p.ctx)
+	cstr := C.ReadProfileCaffe2(p.handle)
 	if cstr == nil {
 		return "", errors.New("failed to read nil profile")
 	}

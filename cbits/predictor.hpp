@@ -6,25 +6,51 @@ extern "C" {
 #endif  // __cplusplus
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include "timer.h"
 
 typedef void *PredictorContext;
 
-typedef enum { CPU_DEVICE_KIND = 0, CUDA_DEVICE_KIND = 1 } DeviceKind;
+typedef enum {
+  UNKNOWN_DEVICE_KIND = 1,
+  CPU_DEVICE_KIND = 0,
+  CUDA_DEVICE_KIND = 1
+} Caffe2_DeviceKind;
+
+typedef enum Caffe2_DataType {
+  Caffe2_Unknown = 0,
+  Caffe2_Byte = 1,
+  Caffe2_Char = 2,
+  Caffe2_Short = 3,
+  Caffe2_Int = 4,
+  Caffe2_Long = 5,
+  Caffe2_Half = 6,
+  Caffe2_Float = 7,
+  Caffe2_Double = 8,
+
+} Caffe2_DataType;
+
+typedef struct Caffe2_TensorInfo {
+  int64_t num_elems;
+  size_t nbytes;
+  int *dims;
+  size_t ndims;
+} Caffe2_TensorInfo;
 
 PredictorContext NewCaffe2(char *init_net_file, char *net_file,
-                           DeviceKind device);
+                           Caffe2_DeviceKind device);
 PredictorContext NewCaffe2FromOnnx(char *onnx_data, int64_t onnx_data_len,
-                                   DeviceKind device);
+                                   Caffe2_DeviceKind device);
 
-void InitCaffe2(DeviceKind device_kind);
+void InitCaffe2(Caffe2_DeviceKind device_kind);
 
-error_t PredictCaffe2(PredictorContext pred, float *imageData,
-                      const char *input_type, const int batch,
-                      const int channels, const int width, const int height);
+error_t AddInputCaffe2(PredictorContext pred, int64_t idx, Caffe2_DataType ty,
+                       void *data, int64_t *shape, int64_t ndims);
 
-float *GetPredictionsCaffe2(PredictorContext pred);
+error_t PredictCaffe2(PredictorContext pred);
+
+void *GetPredictionsCaffe2(PredictorContext pred, int idx);
 
 void DeleteCaffe2(PredictorContext pred);
 

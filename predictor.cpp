@@ -10,10 +10,10 @@
 #include <caffe2/core/net.h>
 #include <caffe2/core/observer.h>
 #include <caffe2/core/operator.h>
-#include <caffe2/utils/proto_utils.h>
 #include <caffe2/core/types.h>
 #include <caffe2/onnx/backend.h>
 #include <caffe2/onnx/backend_rep.h>
+#include <caffe2/utils/proto_utils.h>
 
 #include <caffe2/proto/caffe2.pb.h>
 
@@ -119,8 +119,10 @@ void TimeObserver<OperatorBase>::Stop() {
 class Predictor {
  public:
   Predictor(NetDef *init_net, NetDef *net_def, DeviceKind device_kind);
-  void Predict(float *imageData, std::string input_type, const int batch_size,
-               const int channels, const int width, const int height);
+  void Predict();
+  void SetInput(int64_t idx, Caffe2_DataType ty, void *data, int64_t *shape,
+                int64_t ndims);
+  void *GetOutput(int idx);
 
   DeviceKind device_kind_;
 
@@ -129,7 +131,6 @@ class Predictor {
   std::vector<string> input_names_;
   std::vector<string> output_names_;
   int pred_len_;
-  void *result_{nullptr};
   bool profile_enabled_{false};
   profile *prof_{nullptr};
 
@@ -137,7 +138,7 @@ class Predictor {
 
   std::string profile_name_{""}, profile_metadata_{""};
 };
-}
+}  // namespace mlmodelscope
 
 static std::string get_backend(std::string backend) {
   if (backend != "builtin") {
@@ -160,7 +161,6 @@ static std::string get_backend(std::string backend) {
   return backend;
 }
 
-
 static void set_operator_engine(NetDef *net, DeviceType device_type) {
   net->mutable_device_option()->set_device_type(TypeToProto(device_type));
 
@@ -170,9 +170,9 @@ static void set_operator_engine(NetDef *net, DeviceType device_type) {
   }
 }
 
-static void set_operator_engine(NetDef *net, std::string backend, DeviceType device_type) {
-
-	set_operator_engine(net, device_type);
+static void set_operator_engine(NetDef *net, std::string backend,
+                                DeviceType device_type) {
+  set_operator_engine(net, device_type);
 
   for (int i = 0; i < net->op_size(); i++) {
     caffe2::OperatorDef *op_def = net->mutable_op(i);
@@ -183,34 +183,34 @@ static void set_operator_engine(NetDef *net, std::string backend, DeviceType dev
 static void set_operator_engine(NetDef *net, DeviceKind device_kind) {
   if (device_kind == CUDA_DEVICE_KIND) {
 #ifdef WITH_CUDA
-    set_operator_engine(net,  get_backend("cuda") , caffe2::CUDA);
-	return ;
+    set_operator_engine(net, get_backend("cuda"), caffe2::CUDA);
+    return;
 #else
     throw std::runtime_error(
         "ERROR: go-caffe2 was complied with nogpu tag set");
 #endif  // WITH_CUDA
-  } 
-  set_operator_engine(net,  get_backend("eigen") , caffe2::CPU);
+  }
+  set_operator_engine(net, get_backend("eigen"), caffe2::CPU);
 }
 
 mlmodelscope::Predictor::Predictor(NetDef *init_net, NetDef *pred_net_def,
-                     DeviceKind device_kind) {
+                                   DeviceKind device_kind) {
   ws_ = new Workspace();
   device_kind_ = device_kind;
   ws_->RunNetOnce(*init_net);
 
   for (auto in : pred_net_def->external_input()) {
-	  auto* blob = ws_->GetBlob(in);
-	  if (!blob) {
-		  ws_->CreateBlob(in);
-	  }
+    auto *blob = ws_->GetBlob(in);
+    if (!blob) {
+      ws_->CreateBlob(in);
+    }
     input_names_.emplace_back(in);
   }
-  for (auto  out: pred_net_def->external_output()) {
-	  auto* blob = ws_->GetBlob(out);
-	  if (!blob) {
-		  ws_->CreateBlob(out);
-	  }
+  for (auto out : pred_net_def->external_output()) {
+    auto *blob = ws_->GetBlob(out);
+    if (!blob) {
+      ws_->CreateBlob(out);
+    }
     output_names_.emplace_back(out);
   }
 
@@ -220,28 +220,15 @@ mlmodelscope::Predictor::Predictor(NetDef *init_net, NetDef *pred_net_def,
   net_ = ws_->CreateNet(*pred_net_def);
 }
 
-void mlmodelscope::Predictor::Predict(float *imageData, std::string input_type,
-                        const int batch_size, const int channels,
-                        const int width, const int height) {
-    using mlmodelscope::TimeObserver;
-  if (result_ != nullptr) {
-    free(result_);
-    result_ = nullptr;
-  }
-  if (profile_enabled_) {
-    auto net_ob = make_unique<TimeObserver<NetBase>>(
-        net_, &prof_, profile_name_, profile_metadata_);
-    net_->AttachObserver(std::move(net_ob));
-  }
+void mlmodelscope::Predictor::SetInput(int64_t idx, Caffe2_DataType ty,
+                                       void *data, int64_t *cshape,
+                                       int64_t ndims) {
+  std::vector<int64_t> dims(cshape, cshape + ndims);
+  size_t flattened_length =
+      std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<size_t>());
 
-  const auto data_size = batch_size * channels * width * height;
+  auto input_name = input_names_[idx];
 
-  std::vector<float> data(data_size);
-  std::copy(imageData, imageData + data_size, data.begin());
-
-  std::vector<int64_t> dims({batch_size, channels, width, height});
-
-  auto input_name = input_names_[0];
   auto *blob = ws_->GetBlob(input_name);
   if (blob == nullptr) {
     blob = ws_->CreateBlob(input_name);
@@ -250,7 +237,7 @@ void mlmodelscope::Predictor::Predict(float *imageData, std::string input_type,
   if (device_kind_ == CUDA_DEVICE_KIND) {
 #ifdef WITH_CUDA
     Tensor cpu_tensor(dims, caffe2::CPU);
-    cpu_tensor.ShareExternalPointer(data.data());
+    cpu_tensor.ShareExternalPointer(data);
     auto tensor = BlobGetMutableTensor(blob, caffe2::CUDA);
     tensor->CopyFrom(cpu_tensor);
 #else
@@ -260,14 +247,46 @@ void mlmodelscope::Predictor::Predict(float *imageData, std::string input_type,
   } else {
     auto tensor = BlobGetMutableTensor(blob, caffe2::CPU);
     tensor->Resize(dims);
-    tensor->ShareExternalPointer(data.data());
+    tensor->ShareExternalPointer(data);
+  }
+}
+
+void mlmodelscope::Predictor::Predict(float *imageData, std::string input_type,
+                                      const int batch_size, const int channels,
+                                      const int width, const int height) {
+  using mlmodelscope::TimeObserver;
+  if (profile_enabled_) {
+    auto net_ob = make_unique<TimeObserver<NetBase>>(
+        net_, &prof_, profile_name_, profile_metadata_);
+    net_->AttachObserver(std::move(net_ob));
   }
 
   if (!net_->Run()) {
     throw std::runtime_error("invalid run");
   }
+}
 
-  auto output_name = output_names_[0];
+TensorInfo mlmodelscope::Predictor::GetOutputInfo(int idx) {
+  auto output_name = output_names_[idx];
+  auto *output_blob = ws_->GetBlob(output_name);
+  if (output_blob == nullptr) {
+    throw std::runtime_error("output blob does not exist");
+  }
+
+  auto output_tensor = output_blob->Get<TensorCPU>();
+
+  if (device_kind_ == CUDA_DEVICE_KIND) {
+    output_tensor = output_blob->Get<caffe2::TensorCUDA>();
+  }
+
+  return TensorInfo{.size = output_tensor.numel(),
+                    .nbytes = output_tensor.nbytes(),
+                    dims = output_tensor.sizes().data(),
+                    ndims = output_tensor.sizes().size()};
+}
+
+void *mlmodelscope::Predictor::GetOutput(int idx) {
+  auto output_name = output_names_[idx];
   auto *output_blob = ws_->GetBlob(output_name);
   if (output_blob == nullptr) {
     throw std::runtime_error("output blob does not exist");
@@ -276,22 +295,22 @@ void mlmodelscope::Predictor::Predict(float *imageData, std::string input_type,
   if (device_kind_ == CUDA_DEVICE_KIND) {
 #ifdef WITH_CUDA
     auto output_tensor = output_blob->Get<caffe2::TensorCUDA>();
-    result_ = (void *)malloc(output_tensor.nbytes());
+    void *result = (void *)malloc(output_tensor.nbytes());
     pred_len_ = output_tensor.size() / batch_size;
     cuda_context->CopyBytesToCPU(output_tensor.nbytes(),
-                                 output_tensor.raw_data(), result_);
+                                 output_tensor.raw_data(), result);
     cuda_context->FinishDeviceComputation();
-    return;
+    return result;
 #else
     throw std::runtime_error(
         "ERROR: go-caffe2 was compiled with nogpu tag set");
 #endif  // WITH_CUDA
-  } else {
-    auto output_tensor = output_blob->Get<TensorCPU>();
-    pred_len_ = output_tensor.size() / batch_size;
-    result_ = (void *)malloc(output_tensor.nbytes());
-    memcpy(result_, output_tensor.raw_data(), output_tensor.nbytes());
   }
+  auto output_tensor = output_blob->Get<TensorCPU>();
+  pred_len_ = output_tensor.size() / batch_size;
+  void *result = (void *)malloc(output_tensor.nbytes());
+  memcpy(result, output_tensor.raw_data(), output_tensor.nbytes());
+  return result;
 }
 
 PredictorContext NewCaffe2(char *init_net_file, char *pred_net_file,
@@ -326,21 +345,18 @@ PredictorContext NewCaffe2FromOnnx(char *model_data, int64_t model_data_len,
     std::vector<caffe2::onnx::Caffe2Ops> extras;
     std::string content(model_data, model_data_len);
     auto onnx_backend = onnx_instance.Prepare(
-        content,
-        (device_kind == CUDA_DEVICE_KIND ? "CUDA"
-                                         : "CPU"),
-        extras);
-	auto init_net = onnx_backend->init_net();
+        content, (device_kind == CUDA_DEVICE_KIND ? "CUDA" : "CPU"), extras);
+    auto init_net = onnx_backend->init_net();
     auto pred_net = onnx_backend->pred_net();
-	if (device_kind == CUDA_DEVICE_KIND) {
-		set_operator_engine(&pred_net,  get_backend("cuda") , caffe2::CUDA);
-		set_operator_engine(&init_net,  get_backend("cuda") , caffe2::CUDA);
-	} else {
-		set_operator_engine(&pred_net,   caffe2::CPU);
-		set_operator_engine(&init_net,   caffe2::CPU);
-	}
+    if (device_kind == CUDA_DEVICE_KIND) {
+      set_operator_engine(&pred_net, get_backend("cuda"), caffe2::CUDA);
+      set_operator_engine(&init_net, get_backend("cuda"), caffe2::CUDA);
+    } else {
+      set_operator_engine(&pred_net, caffe2::CPU);
+      set_operator_engine(&init_net, caffe2::CPU);
+    }
     auto ctx = new mlmodelscope::Predictor(&init_net, &pred_net, device_kind);
-	ctx->onnx_backend_ = onnx_backend;
+    ctx->onnx_backend_ = onnx_backend;
     return (PredictorContext)ctx;
   } catch (const std::invalid_argument &ex) {
     LOG(ERROR) << "exception: " << ex.what();
@@ -385,17 +401,30 @@ void InitCaffe2(DeviceKind device_kind) {
   }
 }
 
-error_t PredictCaffe2(PredictorContext pred, float *imageData,
-                      const char *input_type, const int batch_size,
-                      const int channels, const int width, const int height) {
+error_t AddInputCaffe2(PredictorContext pred, int64_t idx, Caffe2_DataType ty,
+                       void *data, int64_t *shape, int64_t ndims) {
   try {
     auto predictor = (mlmodelscope::Predictor *)pred;
     if (predictor == nullptr) {
       std ::cout << __func__ << "  " << __LINE__ << " ... got a null pointer\n";
       return error_invalid_memory;
     }
-    predictor->Predict(imageData, input_type, batch_size, channels, width,
-                       height);
+    predictor->SetInput(idx, ty, data, shape, ndims);
+    return success;
+  } catch (std::exception &ex) {
+    LOG(ERROR) << "exception: catch all [ " << ex.what() << "]"
+               << "\n";
+    return error_exception;
+  }
+}
+error_t PredictCaffe2(PredictorContext pred) {
+  try {
+    auto predictor = (mlmodelscope::Predictor *)pred;
+    if (predictor == nullptr) {
+      std ::cout << __func__ << "  " << __LINE__ << " ... got a null pointer\n";
+      return error_invalid_memory;
+    }
+    predictor->Predict();
     return success;
   } catch (std::exception &ex) {
     LOG(ERROR) << "exception: catch all [ " << ex.what() << "]"
@@ -404,16 +433,17 @@ error_t PredictCaffe2(PredictorContext pred, float *imageData,
   }
 }
 
-float *GetPredictionsCaffe2(PredictorContext pred) {
+void *GetPredictionsCaffe2(PredictorContext pred, int idx) {
   try {
     auto predictor = (mlmodelscope::Predictor *)pred;
     if (predictor == nullptr) {
       return nullptr;
     }
-    if (predictor->result_ == nullptr) {
+    auto result = predictor->GetOutput(idx);
+    if (result == nullptr) {
       throw std::runtime_error("expected a non-nil result");
     }
-    return (float *)predictor->result_;
+    return (void *)result;
   } catch (std::exception &ex) {
     LOG(ERROR) << "exception: catch all [ " << ex.what() << "]"
                << "\n";
@@ -429,9 +459,6 @@ void DeleteCaffe2(PredictorContext pred) {
     }
     if (predictor->ws_ != nullptr) {
       delete predictor->ws_;
-    }
-    if (predictor->result_) {
-      free(predictor->result_);
     }
     if (predictor->prof_) {
       predictor->prof_->reset();
